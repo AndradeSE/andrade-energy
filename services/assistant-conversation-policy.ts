@@ -13,11 +13,11 @@ export async function answerAssistantConversation(input: {
   const history = conversationMemory(input.history, input.mode);
   if (input.mode === "online") return io.online(input.question, history);
   if (input.help) return { text: input.help, private: true };
-  if (!input.modelReady) return { text: "Instale o modelo em Configurações do Andrade para conversar no aparelho. As consultas e os comandos seguros continuam disponíveis; dados atuais precisam de internet.", private: true };
+  if (!input.modelReady) return { text: "Instale o modelo em Configurações da Solar para conversar no aparelho. As consultas e os comandos seguros continuam disponíveis; dados atuais precisam de internet.", private: true };
   try {
     const text = await io.local([...history.map(turn => ({ role: turn.from, content: turn.text })), { role: "user", content: input.question }], input.context);
     return { text, private: true };
   } catch {
-    return { text: "O modelo local não conseguiu responder. As consultas e os comandos seguros continuam disponíveis. Você pode tentar novamente ou escolher o modo online em Configurações do Andrade. Não enviei esta conversa à IA online.", private: true };
+    return { text: "O modelo local não conseguiu responder. As consultas e os comandos seguros continuam disponíveis. Você pode tentar novamente ou escolher o modo online em Configurações da Solar. Não enviei esta conversa à IA online.", private: true };
   }
 }

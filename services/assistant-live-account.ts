@@ -36,13 +36,15 @@ export async function queryLiveAccount(question: string, ctx: AssistantAccountCo
   }
   const production = detectProductionMetric(text);
   const capability = production === "energiaDisponivel" ? undefined : detectCapability(text);
-  if (capability?.module === "conta-luz") return executeAssistantTool(capability, ctx, text);
+  if (capability?.module === "conta-luz") return executeAssistantTool(capability, ctx, question);
   const document = asksLatestInvoiceDocument(text);
   const overdue = asksOverdueInvoices(text);
   const financial = detectFinancialMetric(text);
   const invoiceAmount = asksLatestInvoiceAmount(text);
   if (capability && !(ctx.generator && financial) && !overdue && !invoiceAmount && !(document && !capability.review && ["usinas", "faturamento", "pagamento"].includes(capability.module))) {
-    return executeAssistantTool(capability, ctx, text);
+    // Typo correction aids routing, but must not rewrite the tool's target:
+    // e.g. "usinas" becoming "usina" changes list into selected-plant metrics.
+    return executeAssistantTool(capability, ctx, question);
   }
   if (overdue || document || asksLatestInvoiceAmount(text) || (!financial && /\bfaturas?\b/.test(text))) {
     if (ctx.generator && !ctx.plantId) return { text: "Selecione a usina para consultar suas faturas." };

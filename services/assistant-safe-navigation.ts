@@ -50,7 +50,7 @@ export function resolveSafeNavigation(question: string, ctx: SafeNavigationConte
   if (/\b(tutoriais?|videos?)\b/.test(text)) return { text: "Os tutoriais continuam desativados por tempo indeterminado." };
   if (/\b(inicio|home|tela inicial)\b/.test(text)) return selected() ? open("Início", "/(tabs)") : contextMissing;
   if (/\b(notificacoes|avisos|alertas)\b/.test(text)) return selected() ? open("Notificações", "/(tabs)", { solarNotificacoes: "1" }) : contextMissing;
-  if (/\b(solar|assistente)\b/.test(text) && /\b(configuracoes|preferencias)\b/.test(text)) return open("Configurações do Andrade", "/configuracoes-assistente");
+  if (/\b(solar|assistente)\b/.test(text) && /\b(configuracoes|preferencias)\b/.test(text)) return open("Configurações da Solar", "/configuracoes-assistente");
   if (/\b(sobre|versao|atualizacoes)\b/.test(text)) return open("Sobre o app", "/sobre");
   if (/\b(novo cliente|cadastro de cliente)\b/.test(text)) return available("clientes") ? open("Cadastro de cliente para preenchimento", "/clientes/novo") : denied;
   if (/\b(nova uc|nova unidade|cadastro de uc)\b/.test(text)) return available("unidades") ? open("Cadastro de UC para preenchimento", "/unidades/nova") : denied;

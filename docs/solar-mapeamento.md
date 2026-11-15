@@ -1,5 +1,22 @@
 # Mapeamento da Solar
 
+## Revisão de 14/11/2026
+
+Nome e chamada por voz restaurados para **Solar**, conforme solicitado. A restauração usa a base `508f31e0`, mantendo os reparos anteriores de documentos e contexto. Não utiliza as aproximações de reconhecimento de Andrade.
+
+A suíte `services/assistant-tools.integration.test.cjs` executa o detector, o despachante real, os seletores e o resolvedor de documentos para os 28 módulos do catálogo. Os serviços autenticados e o armazenamento nativo são simulados com dados de teste; nenhuma transação é enviada. São 34 cenários, incluindo:
+
+- Consulta de consumo médio cadastrado e último consumo da fatura, com valores distintos.
+- Documento da UC explícita, resolução do PDF e consulta posterior de consumo.
+- Pedido de PDF sem repetir o número, restrito à UC do contexto.
+- Nova UC explícita substituindo o cliente anterior, mantendo a usina autorizada.
+- Encerramento e recarregamento do histórico antes de perguntar pelo consumo da mesma UC.
+- Histórico isolado por usuário e usina; módulos administrativos bloqueados no Consumidor e sem permissão.
+
+Três defeitos foram reproduzidos e corrigidos: o pedido de PDF sem UC explícita podia listar outras UCs; uma UC explícita diferente podia continuar filtrada pelo cliente anterior; a correção ortográfica da conversa por voz podia transformar “liste usinas” em consulta da usina atual. O despachante agora recebe o pedido original após a classificação.
+
+Validação automatizada: 34 cenários de integração, 56 testes de serviços do assistente e quatro testes de runtime aprovados. Isso não substitui reconhecimento de voz real, interação com a interface nem respostas de serviços de produção. A conferência integral desta revisão por voz no S23 ainda depende do aparelho desbloqueado; não registrar essa etapa como concluída somente pelos testes simulados.
+
 | Fluxo | App | Portal |
 | --- | --- | --- |
 | Início, notificações, perfil e configurações da Solar | Navegação | Navegação |

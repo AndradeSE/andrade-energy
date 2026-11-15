@@ -313,10 +313,18 @@ export async function executeAssistantTool(intent: AssistantIntent, ctx: Assista
       const clientesCitados = ctx.generator ? selectAssistantClients(onlyArray(await listarClientes(ctx.plantId!)), question) : [];
       if (clientesCitados.length > 1) return { text: "Encontrei mais de um cliente com esse nome. Informe o nome completo.", actions };
       if (/\bcliente\s+\S+/.test(pedido) && !clientesCitados.length) return { text: "Não encontrei esse cliente na usina selecionada. Informe o nome cadastrado.", actions };
-      const clienteId = clientesCitados[0]?.id ?? ctx.clientId;
-      const faturasCliente = clienteId ? rows.filter((f: any) => f.cliente_id === clienteId) : rows;
       const ucPedida = /\b(?:uc|unidade(?: consumidora)?)\s+(?:final\s+)?([\d. -]{4,})/.exec(pedido)?.[1]?.replace(/\D/g, "");
-      const faturasDaUc = ucPedida ? faturasCliente.filter((f: any) => String(f.numero_instalacao ?? "").replace(/\D/g, "").endsWith(ucPedida)) : faturasCliente;
+      // An explicitly requested UC replaces the conversational client target;
+      // the authenticated plant-scoped response remains the access boundary.
+      const clienteId = clientesCitados[0]?.id ?? (ucPedida && ctx.generator ? undefined : ctx.clientId);
+      const faturasCliente = clienteId ? rows.filter((f: any) => f.cliente_id === clienteId) : rows;
+      const contextualUnit = !ucPedida && !clientesCitados.length && (ctx.unitId || ctx.unitNumber);
+      const faturasDaUc = ucPedida
+        ? faturasCliente.filter((f: any) => String(f.numero_instalacao ?? "").replace(/\D/g, "").endsWith(ucPedida))
+        : contextualUnit ? faturasCliente.filter((f: any) =>
+          Boolean(ctx.unitId && f.unidade_consumidora_id === ctx.unitId) ||
+          Boolean(ctx.unitNumber && String(f.numero_instalacao ?? "").replace(/\D/g, "") === ctx.unitNumber.replace(/\D/g, "")))
+        : faturasCliente;
       if (intent.module === "conta-luz" && intent.mode === "query" && asksLatestConsumption(question)) {
         const scope = ctx.generator && !clienteId && !ucPedida && !ctx.unitId && !ctx.unitNumber;
         if (scope) return { text: "De qual cliente ou UC da usina selecionada você quer consultar o último consumo?" };

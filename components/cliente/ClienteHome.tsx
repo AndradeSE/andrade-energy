@@ -221,7 +221,7 @@ export default function ClienteHome() {
               label: "Histórico de leituras",
               onPress: () => router.push("/historico-autoleituras"),
             }] : []),
-            ...(isPreviewEnvironment && assistantHidden ? [{ id: "mostrar-assistente", icon: "chatbubble-ellipses-outline" as const, image: require("../../assets/images/assistant-chat-3d-v2.png"), label: "Mostrar Andrade", onPress: () => void setFloatingHidden(String(user?.id ?? ""), false) }] : []),
+            ...(isPreviewEnvironment && assistantHidden ? [{ id: "mostrar-assistente", icon: "chatbubble-ellipses-outline" as const, image: require("../../assets/images/assistant-chat-3d-v2.png"), label: "Mostrar Solar", onPress: () => void setFloatingHidden(String(user?.id ?? ""), false) }] : []),
             {
               id: "contas-de-luz",
               icon: "document-attach-outline",

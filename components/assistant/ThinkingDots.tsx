@@ -14,7 +14,7 @@ export default function ThinkingDots() {
     animations.forEach(animation=>animation.start());
     return ()=>animations.forEach(animation=>animation.stop());
   },[dots]);
-  return <View style={styles.row} accessibilityRole="progressbar" accessibilityLabel="Andrade está preparando a resposta" accessibilityLiveRegion="polite">
+  return <View style={styles.row} accessibilityRole="progressbar" accessibilityLabel="Solar está preparando a resposta" accessibilityLiveRegion="polite">
     {dots.map((opacity,index)=><Animated.View key={index} style={[styles.dot,{opacity,transform:[{translateY:opacity.interpolate({inputRange:[0.25,1],outputRange:[0,-3]})}]}]} />)}
   </View>;
 }

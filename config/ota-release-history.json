@@ -1,5 +1,32 @@
 [
   {
+    "numero": "OTA 20261114-212843",
+    "data": "14/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Solar: restaurar nome e ativacao por voz anterior"
+    ]
+  },
+  {
+    "numero": "OTA 20261114-212512",
+    "data": "14/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Andrade: preservar saudacao inteira na captura local"
+    ]
+  },
+  {
+    "numero": "OTA 20261114-212208",
+    "data": "14/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Andrade: reconhecer transcricao local de Ola Andrade"
+    ]
+  },
+  {
     "numero": "OTA 20261114-211653",
     "data": "14/11/2026",
     "variant": "gerador",

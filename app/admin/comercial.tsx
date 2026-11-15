@@ -253,8 +253,8 @@ export default function HomeComercial() {
               { id: "Compartilhar app Consumidor", icon: "phone-portrait-outline", label: "Compartilhar app Consumidor", value: baixandoApp === "consumidor" ? `Baixando ${progressoApp}%` : "Para Android", onPress: () => void baixarApp("consumidor") },
               { icon: "information-circle-outline", label: "Sobre e atualizações", onPress: () => router.push("/sobre") },
               { icon: "person-outline", label: "Meu perfil", onPress: () => router.push("/admin/perfil") },
-              ...(isAssistantEnabled && assistantHidden ? [{ icon: "chatbubble-ellipses-outline", label: "Mostrar Andrade", onPress: () => void setFloatingHidden(String(usuario?.id ?? ""), false) }] : []),
-            ].filter((item) => !colaboradorComercial || ["Clientes ativos", "Tutoriais", "Sobre e atualizações", "Meu perfil", "Mostrar Andrade", "Trocar ambiente"].includes(item.label))) as any}
+              ...(isAssistantEnabled && assistantHidden ? [{ icon: "chatbubble-ellipses-outline", label: "Mostrar Solar", onPress: () => void setFloatingHidden(String(usuario?.id ?? ""), false) }] : []),
+            ].filter((item) => !colaboradorComercial || ["Clientes ativos", "Tutoriais", "Sobre e atualizações", "Meu perfil", "Mostrar Solar", "Trocar ambiente"].includes(item.label))) as any}
           />
         </Section>
         {!colaboradorComercial && !loading && data ? (
