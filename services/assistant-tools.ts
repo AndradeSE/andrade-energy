@@ -51,7 +51,9 @@ function routeFor(intent: AssistantIntent, ctx: AssistantAccountContext, questio
     case "atividade": return action("Consultar atividades", "/colaboradores/atividade");
     case "operacao": return action("Revisar operação", "/(tabs)/operacao", undefined, review);
     case "inversores": return ctx.plantId ? action("Revisar inversores", "/usinas/inversores", { id: ctx.plantId }, review) : undefined;
-    case "economia": return action("Consultar economia", "/(tabs)/economia");
+    case "economia": return ctx.generator
+      ? action("Consultar economia da unidade", ctx.unitId ? "/unidades/[id]" : "/unidades", unit)
+      : action("Consultar economia", "/(tabs)/economia");
     case "conta-luz": return action("Abrir contas de luz", "/contas-de-luz");
     case "pagamento": return action("Revisar faturas e pagamento", "/(tabs)/faturas", undefined, review);
     case "anexos": return ctx.clientId ? action("Revisar anexos", "/clientes/faturas-anexadas", { clienteId: ctx.clientId }, review) : action("Escolher cliente", "/(tabs)/clientes");
@@ -212,7 +214,8 @@ export async function executeAssistantTool(intent: AssistantIntent, ctx: Assista
           const data = await buscarDashboard(unit.cliente_id, unit.numero);
           return `UC ${unit.numero}\nDesconto contratado: ${displayNumber((unit as any).desconto_percentual)}%\nEconomia do mês: ${displayNumber(data.economiaMes, true)}\nEconomia acumulada: ${displayNumber(data.economiaAcumulada, true)}\nSaldo de energia: ${displayNumber(data.saldoAtual)} kWh\nReferência: ${scalar(data.competenciaSaldo)}`;
         }));
-        return { text: summaries.join("\n\n"), actions };
+        return { text: summaries.join("\n\n"), actions: selected.slice(0, 4).map(unit =>
+          action(`Ver economia · UC ${unit.numero}`, "/unidades/[id]", { id: unit.id })) };
       }
       const units = onlyArray(await listarMinhasUnidades());
       const unit = units.find(item => item.id === ctx.unitId);

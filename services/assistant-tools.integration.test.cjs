@@ -124,6 +124,12 @@ test('pedido de PDF sem repetir o número respeita a UC da sessão', async () =>
   assert.deepEqual(reply.documents.map(doc => doc.id), ['f1']);
 });
 
+test('economia consultada no Gerador abre a UC correspondente, sem tela do Consumidor', async () => {
+  const f = fixture();
+  const reply = await f.queryLiveAccount('Qual a economia da UC final 1898?', { ...f.ctx, unitId: undefined });
+  assert.deepEqual(reply.actions, [{ label: 'Ver economia · UC 854652001898', route: '/unidades/[id]', params: { id: 'u1' }, review: false }]);
+});
+
 test('UC explícita substitui o cliente anterior sem ampliar o acesso à usina', async () => {
   const f = fixture(); const question = 'Abra a fatura da Cemig da UC final 1899';
   const reply = await f.executeAssistantTool(f.detectCapability(question), f.ctx, question);

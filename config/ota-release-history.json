@@ -1,5 +1,14 @@
 [
   {
+    "numero": "OTA 20261114-221908",
+    "data": "14/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Solar: campo de escrita acima do teclado e consultas sem perder plurais"
+    ]
+  },
+  {
     "numero": "OTA 20261114-220629",
     "data": "14/11/2026",
     "variant": "gerador",
