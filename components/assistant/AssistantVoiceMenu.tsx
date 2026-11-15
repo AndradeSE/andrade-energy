@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { Alert, AppState, StyleSheet, Switch, Text, View } from "react-native";
+import { Alert, AppState, Pressable, StyleSheet, Switch, Text, View } from "react-native";
 import { automaticLocalWakeConsent, setAutomaticLocalWakeConsent } from "../../services/assistant-voice-consent";
-import { setWakeWordEnabled } from "../../services/assistant-wake-word";
+import { armWakeWordDiagnostic, setWakeWordEnabled, wakeWordReady } from "../../services/assistant-wake-word";
 import { installVoiceModels, isVoiceInstalled } from "../../services/on-device-voice";
 import { Colors, Spacing } from "../../theme";
 
@@ -32,8 +32,8 @@ export default function AssistantVoiceMenu({ userId }: { userId: string }) {
   function change(value: boolean) {
     if (busy) return;
     if (!value) { setWakeWordEnabled(false); void save(false); return; }
-    Alert.alert("Ativar início por voz do Andrade", "Com o app aberto, o microfone aguarda a palavra ‘Andrade’. Essa escuta é processada no aparelho e pode consumir bateria. Se necessário, será baixado o modelo de voz (cerca de 33 MB). Você pode desativar neste menu.", [{ text: "Agora não", style: "cancel" }, { text: "Ativar", onPress: () => { void save(true); } }]);
+    Alert.alert("Ativar início por voz do Andrade", "Com o app aberto, o microfone aguarda a frase ‘Olá, Andrade’. Essa escuta é processada no aparelho e pode consumir bateria. Se necessário, será baixado o modelo de voz (cerca de 33 MB). Você pode desativar neste menu.", [{ text: "Agora não", style: "cancel" }, { text: "Ativar", onPress: () => { void save(true); } }]);
   }
-  return <View style={styles.row}><View style={styles.copy}><Text style={styles.title}>Início por voz do Andrade</Text><Text style={styles.description}>{busy ? progress || "Carregando…" : enabled ? "Ativado · diga Andrade com o app aberto" : "Desativado · abra o Andrade pelo botão"}</Text></View><Switch accessibilityLabel="Início por voz do Andrade" value={enabled} disabled={busy} onValueChange={change} trackColor={{ true: Colors.primary }} /></View>;
+  return <><View style={styles.row}><View style={styles.copy}><Text style={styles.title}>Início por voz do Andrade</Text><Text style={styles.description}>{busy ? progress || "Carregando…" : enabled ? "Ativado · diga “Olá, Andrade” com o app aberto" : "Desativado · abra o Andrade pelo botão"}</Text></View><Switch accessibilityLabel="Início por voz do Andrade" value={enabled} disabled={busy} onValueChange={change} trackColor={{ true: Colors.primary }} /></View>{enabled && !busy ? <Pressable accessibilityRole="button" style={styles.row} onPress={() => { if (wakeWordReady()) { armWakeWordDiagnostic(); setProgress("Diga Olá, Andrade agora."); } else Alert.alert("Escuta ainda indisponível", "Aguarde o microfone ficar pronto e tente novamente."); }}><Text style={styles.title}>Testar reconhecimento de “Olá, Andrade”</Text></Pressable> : null}</>;
 }
 const styles = StyleSheet.create({ row: { flexDirection: "row", alignItems: "center", gap: Spacing.sm, paddingVertical: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.border }, copy: { flex: 1 }, title: { color: Colors.text, fontSize: 15, fontWeight: "600" }, description: { color: Colors.text, opacity: 0.7, fontSize: 12, marginTop: 4 } });

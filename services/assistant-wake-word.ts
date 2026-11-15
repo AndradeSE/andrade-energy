@@ -32,5 +32,5 @@ export function containsAssistantWakeWord(text: string) {
   const normalized = text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
     .replace(/[^a-z0-9\s]/g, " ").trim().replace(/\s+/g, " ");
   // Variações restritas da mesma chamada, nunca busca parcial em frases.
-  return /^(?:(?:e ai|ei|oi|ola) )?andrade$|^(?:solar|soular|so lar)$/.test(normalized);
+  return /^(?:(?:ola )?andrade|solar|soular|so lar)$/.test(normalized);
 }

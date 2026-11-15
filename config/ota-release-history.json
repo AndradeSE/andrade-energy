@@ -1,5 +1,32 @@
 [
   {
+    "numero": "OTA 20261114-211653",
+    "data": "14/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Andrade: chamada Ola Andrade"
+    ]
+  },
+  {
+    "numero": "OTA 20261114-210824",
+    "data": "14/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Andrade: reconhecer variantes da chamada E ai Andrade"
+    ]
+  },
+  {
+    "numero": "OTA 20261114-205921",
+    "data": "14/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Andrade: diagnostico local da palavra de ativacao"
+    ]
+  },
+  {
     "numero": "OTA 20261114-205300",
     "data": "14/11/2026",
     "variant": "gerador",
