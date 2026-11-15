@@ -1,5 +1,14 @@
 [
   {
+    "numero": "OTA 20261115-083918",
+    "data": "15/11/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Corrigir historico de autoleitura mantendo a UC aberta, validado no S23"
+    ]
+  },
+  {
     "numero": "OTA 20261114-225152",
     "data": "14/11/2026",
     "variant": "gerador",
