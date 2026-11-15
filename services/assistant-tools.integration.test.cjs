@@ -326,3 +326,11 @@ test('Consumidor consulta contato somente do cliente de sua UC sem listar cartei
  assert.match((await f.queryLiveAccount('qual o email da UC 999999999999',{...f.ctx,generator:false})).text,/Selecione/);
  assert.equal(f.calls.filter(([n])=>n==='buscarCliente').length,before);
 });
+
+test('habilitacao da autoleitura nao e confundida com UC ativa nem com protocolo',async()=>{
+ const f=fixture(); Object.assign(f.unit,{zona_localizacao:'RURAL',autoleitura_rural_ativa:false});
+ const reply=await f.queryLiveAccount('a autoleitura da UC final 1898 esta habilitada',{...f.ctx,generator:false});
+ assert.match(reply.text,/Autoleitura rural habilitada no cadastro: não/);
+ assert.doesNotMatch(reply.text,/Situação da UC: ATIVA/);
+ assert.equal(f.detectCapability('qual o historico de autoleitura da UC final 1898').module,'leituras');
+});

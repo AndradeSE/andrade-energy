@@ -8,6 +8,7 @@ const fields = [
   { key: "numero", label: "Número da UC", match: /\b(numero|identificacao)\b/ },
   { key: "status", label: "Situação da UC", match: /\b(status|situacao|ativa|inativa)\b/ },
   { key: "zona_localizacao", label: "Localização", match: /\b(rural|urbana|zona|localizacao)\b/ },
+  { key: "autoleitura_rural_ativa", label: "Autoleitura rural habilitada no cadastro", match: /\bautoleitura\b/ },
   { key: "modalidade_faturamento", label: "Modalidade", match: /\b(modalidade|compensacao|injecao)\b/ },
   { key: "desconto_percentual", label: "Desconto cadastrado", match: /\b(desconto|percentual de desconto)\b/, unit: "%" },
   { key: "percentual_rateio", label: "Rateio cadastrado", match: /\b(rateio|alocacao)\b/, unit: "%" },
@@ -20,6 +21,7 @@ export function requestedUnitDetails(question: string): UnitDetailKey[] {
   const text = normalizeSolarRequest(question).replace(/\btitular (?:da|de) fatura\b/g, "titular");
   if (hasSolarMutation(text) || isSolarHelp(text) || /\b(pdf|arquivo|documento|boleto|pagamento|contrato|economia|simulacao|calcule|fatura)\b/.test(text)) return [];
   const targetsUnit = /\b(uc|ucs|unidade|unidades)\b/.test(text);
+  if (/\bautoleitura\b/.test(text)) return /\b(ativa|ativada|habilitada|desativada|habilitacao|elegivel)\b/.test(text) ? ["zona_localizacao", "autoleitura_rural_ativa"] : [];
   if (/\b(cliente|consumidor)\b/.test(text) && !targetsUnit) return [];
   if (/\b(usina|geradora)\b/.test(text) && !targetsUnit) return [];
   if (targetsUnit && /\b(dados|informacoes|cadastro|detalhes)\b/.test(text)) return fields.map(field => field.key);
@@ -30,6 +32,7 @@ export function requestedUnitDetails(question: string): UnitDetailKey[] {
 export function unitDetailsReply(unit: Record<string, unknown>, keys: UnitDetailKey[]) {
   const value = (key: UnitDetailKey, suffix?: string) => {
     const raw = unit[key];
+    if (key === "autoleitura_rural_ativa") return raw === true ? "sim" : raw === false ? "não" : "não informado";
     if (suffix) {
       const numeric = typeof raw === "number" || typeof raw === "string" && /^\d+(?:\.\d+)?$/.test(raw.trim()) ? Number(raw) : NaN;
       return Number.isFinite(numeric) ? numeric.toLocaleString("pt-BR", { maximumFractionDigits: 4 }) + suffix : "não informado";
