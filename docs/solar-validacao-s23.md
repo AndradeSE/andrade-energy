@@ -71,3 +71,9 @@ Na revisão Preview 4f809119, foram reconferidos:
 - Empresas: botão abriu o seletor de áreas; nenhuma empresa foi trocada por suposição.
 
 Quatro testes adicionais de automação cadastral passaram: revisão sem escrita, confirmação única, contexto/expiração/cadastro alterado e valor inválido/permissão ausente. Total: **100 testes automatizados**. A rodada de consultas dos 28 módulos, documentos disponíveis e navegações acima está registrada; não inclui execução financeira, assinatura, envio à Cemig, gravação real de cada cadastro nem todas as combinações de voz e perfis. Esses limites são de cobertura, e não devem ser ocultados por uma declaração de ponta a ponta irrestrito.
+
+## Conferência automatizada adicional — 14/11/2026
+
+Os oito testes de automação cadastral passaram, incluindo edição de cliente na usina autorizada, remoção de acesso entre revisão e confirmação, homônimos de usinas e apelido somente das UCs do próprio Consumidor. A execução completa confirmou **104 testes aprovados**: 64 de serviços, 36 de integração e quatro de runtime, sem falhas.
+
+A gravação reversível pela interface autenticada continua pendente: o S23 está conectado, porém bloqueado. Nenhum dado foi alterado para simular essa evidência. A última publicação de produção do Gerador permanece na revisão d1bc1bf4; esta rodada acrescentou testes, sem mudança de código de execução nem nova OTA.
