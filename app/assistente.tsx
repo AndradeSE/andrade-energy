@@ -43,7 +43,7 @@ import { playActivationBeep } from "../services/assistant-beep";
 import { buscarDashboardUsina } from "../services/usinas.service";
 import { detectProductionMetric, productionMetricReply } from "../services/assistant-production";
 import { detectAccountQuery, consultAccount } from "../services/assistant-account";
-import { asksAverageConsumption, asksConsumptionInvoice, asksLatestConsumption, detectCapability, type AssistantAction, type AssistantDocument } from "../services/assistant-capabilities";
+import { asksAverageConsumption, asksConsumptionInvoice, asksLatestConsumption, detectCapability, normalizeCapabilityText, type AssistantAction, type AssistantDocument } from "../services/assistant-capabilities";
 import { executeAssistantTool, resolveAssistantDocument } from "../services/assistant-tools";
 import { queryLiveAccount, redactLiveAccountText } from "../services/assistant-live-account";
 import { setFloatingConversationPhase } from "../services/assistant-floating-conversation";
@@ -123,9 +123,11 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
   const updateKeyboardOverlap = useCallback(() => {
     if (Platform.OS !== "android") return;
     keyboardRoot.current?.measureInWindow((_x, y, _width, height) => {
-      setKeyboardOverlap(keyboardTop.current === null ? 0 : Math.max(0, y + height - keyboardTop.current));
+      // Android measures this view below the status bar, while the keyboard
+      // frame uses screen coordinates. Include that inset before comparing.
+      setKeyboardOverlap(keyboardTop.current === null ? 0 : Math.max(0, y + height + insets.top - keyboardTop.current));
     });
-  }, []);
+  }, [insets.top]);
   const voiceActive = useRef(false);
   const liveSession = useRef<{ stop: () => Promise<void> } | null>(null);
   const liveStarting = useRef(false);
@@ -256,10 +258,12 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
     return () => animations.forEach(animation => animation.stop());
   }, [listening, hearingSpeech, speakingReply, wave, wakeEnabled, wakeReady, wakePaused]);
   useEffect(() => {
-    const show = Keyboard.addListener("keyboardDidShow", event => { keyboardTop.current = event.endCoordinates.screenY; setKeyboardVisible(true); updateKeyboardOverlap(); });
+    const update = (event: import("react-native").KeyboardEvent) => { keyboardTop.current = event.endCoordinates.screenY; setKeyboardVisible(true); updateKeyboardOverlap(); };
+    const show = Keyboard.addListener("keyboardDidShow", update);
+    const change = Keyboard.addListener("keyboardDidChangeFrame", update);
     const hide = Keyboard.addListener("keyboardDidHide", () => { keyboardTop.current = null; setKeyboardVisible(false); setKeyboardOverlap(0); });
-    return () => { show.remove(); hide.remove(); };
-  }, []);
+    return () => { show.remove(); change.remove(); hide.remove(); };
+  }, [updateKeyboardOverlap]);
   useEffect(() => subscribeModelInstall(state => {
     setDownloadingModel(state.phase === "conectando" || state.phase === "baixando");
     setInstallProgress(state.progress);
@@ -1002,7 +1006,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
     }
   }
   function perguntaComContextoDoContrato(question: string) {
-    const texto = normalizeAssistantQuery(question);
+    const texto = normalizeCapabilityText(question);
     const anterior = ultimoContrato.current;
     if (anterior?.geracao === contextGeneration.current &&
         /\b(desconto|porcentagem|percentual|clausula|prazo)\b/.test(texto) &&
