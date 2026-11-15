@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "node scripts/clean-build.mjs && tsc -b && vite build && node scripts/prepare-worker.mjs",
-    "test": "node --experimental-strip-types --test scripts/test-*.ts scripts/test-api-proxy.mjs",
+    "test": "tsx --test scripts/test-*.ts scripts/test-api-proxy.mjs",
     "test:projections": "node --experimental-strip-types --test scripts/test-projections.ts",
     "preview": "vite preview"
   },
@@ -19,5 +19,8 @@
     "react-dom": "19.1.0",
     "typescript": "~5.9.2",
     "vite": "latest"
+  },
+  "devDependencies": {
+    "tsx": "4.23.1"
   }
 }

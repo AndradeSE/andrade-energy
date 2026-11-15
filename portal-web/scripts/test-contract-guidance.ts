@@ -6,7 +6,8 @@ test("aviso de fatura explica a janela de cinco dias sem confundir contrato", ()
   const answer = contractGuidance("Como recebo aviso da fatura?", "CONSUMIDOR");
   assert.match(answer ?? "", /cinco dias/);
   assert.match(answer ?? "", /pagas ou canceladas/);
-  assert.doesNotMatch(answer ?? "", /30 dias/);
+  assert.match(answer ?? "", /Após o vencimento.*1, 7, 15 e 30 dias/);
+  assert.doesNotMatch(answer ?? "", /aviso prévio|desligamento|fidelidade/);
 });
 
 test("regras de contrato incluem novo aceite e confirmação do desligamento", () => {

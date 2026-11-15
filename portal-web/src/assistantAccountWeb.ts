@@ -6,6 +6,8 @@ export function accountIntent(question: string) {
   const text = normalizeSolarRequest(question);
   if (isSolarHelp(text)) return null;
   if (hasSolarMutation(text)) return "review";
+  if (/\b(consumo\s+medio|media\s+(?:mensal\s+)?(?:de\s+)?consumo)\b/.test(text)) return "average";
+  if (/\b(autoleituras?|leituras?|protocolos?)\b/.test(text)) return "readings";
   if (/notificac|avisos|push/.test(text)) return "notifications";
   if (/contas? de luz|concessionaria/.test(text)) return "bills";
   if (/fechamentos|operacao/.test(text)) return "operation";
@@ -35,12 +37,24 @@ export async function answerAccountQuestion(question: string, context: WebAssist
   const intent = accountIntent(question);
   if (!intent) return null;
   const generator = context.variant === "GERADOR";
-  const sections: Record<string, string> = { profile: "Perfil", privacy: "Perfil", companies: "Empresas", units: generator ? "Unidades consumidoras" : "Minha unidade", invoices: "Faturas", bills: "Contas de luz", energy: generator ? "Clientes" : "Economia", contracts: "Contratos", email: "Faturas", wallet: "Carteira", clients: "Clientes", team: "Colaboradores", subscription: "Meu plano", plants: "Usinas", operation: "Operação", commercial: "Gestão comercial", generators: "Geradores", identity: "Minha marca" };
+  const sections: Record<string, string> = { average: generator ? "Unidades consumidoras" : "Minha unidade", readings: generator ? "Unidades consumidoras" : "Minha unidade", profile: "Perfil", privacy: "Perfil", companies: "Empresas", units: generator ? "Unidades consumidoras" : "Minha unidade", invoices: "Faturas", bills: "Contas de luz", energy: generator ? "Clientes" : "Economia", contracts: "Contratos", email: "Faturas", wallet: "Carteira", clients: "Clientes", team: "Colaboradores", subscription: "Meu plano", plants: "Usinas", operation: "Operação", commercial: "Gestão comercial", generators: "Geradores", identity: "Minha marca" };
+  if (!generator && ["companies", "operation", "commercial", "generators", "identity", "wallet", "clients", "team", "subscription", "plants"].includes(intent)) return { text: "Esse recurso pertence ao portal Gerador. Seu acesso continua limitado às suas UCs." };
   if (context.allowedSections && sections[intent] && !context.allowedSections.includes(sections[intent])) return { text: "Esse fluxo não está disponível nas permissões do seu acesso atual." };
   if (context.allowedSections && generator && ["units", "invoices", "bills", "contracts", "clients"].includes(intent) && !context.plantId) return { text: "Selecione a usina no portal antes de consultar esse fluxo." };
   const list = (payload: any): RecordData[] => Array.isArray(payload) ? payload : Array.isArray(payload?.data) ? payload.data : Array.isArray(payload?.items) ? payload.items : [];
   const describe = (rows: RecordData[], label: string, item: (row: RecordData) => string) => `${rows.length} ${label} no seu acesso.\n${rows.slice(0, 12).map(row => `• ${item(row)}`).join("\n")}${rows.length > 12 ? "\nMostrando os primeiros 12." : ""}`;
   const plantQuery = context.plantId ? `?usinaId=${encodeURIComponent(context.plantId)}` : "";
+  if (intent === "average" || intent === "readings") {
+    if (generator && !context.plantId) return { text: "Selecione a usina antes de consultar as unidades." };
+    const units = list(await get(generator ? `/clientes/unidades${plantQuery}` : "/clientes/minhas-unidades"));
+    const requested = normalizeSolarRequest(question).match(/\b(?:uc\s+(?:final\s+)?|final\s+)(\d{3,})\b/)?.[1];
+    const selected = requested ? units.filter(unit => String(unit.numero ?? "").replace(/\D/g, "").endsWith(requested)) : units.filter(unit => String(unit.id) === String(context.unit?.id));
+    if (selected.length !== 1) return { text: selected.length ? "Há mais de uma UC com esse final. Informe o número completo." : "Selecione uma UC autorizada ou informe seu número para consultar.", section: sections[intent] };
+    const unit = selected[0];
+    if (intent === "average") return { text: `UC ${scalar(unit.numero)}\nConsumo médio cadastrado: ${knownNumber(unit.consumo_medio_kwh) ? `${number(unit.consumo_medio_kwh)} kWh` : "não informado"}.\nEssa média não é o consumo da última fatura.`, section: sections[intent] };
+    const rows = list(await get(generator ? `/clientes/unidade/${encodeURIComponent(String(unit.id))}/autoleitura` : `/clientes/minhas-unidades/${encodeURIComponent(String(unit.id))}/autoleitura`));
+    return { text: `UC ${scalar(unit.numero)}\n${rows.length ? describe(rows, "leituras", row => `${scalar(row.data_programada)} · ${number(row.leitura_kwh)} kWh · ${scalar(row.estado)} · protocolo ${scalar(row.protocolo_cemig)}`) : "Não há leituras recebidas para essa UC."}\nLeitura recebida não significa protocolo confirmado na Cemig.`, section: sections[intent] };
+  }
   if (intent === "review") return { text: "Abra a área correspondente, revise a UC, os dados e os valores e confirme a operação por lá. Nenhuma alteração foi realizada por mim." };
   if (intent === "notifications") return { text: describe(list(await get("/notificacoes")), "notificações", row => `${scalar(row.titulo)} · ${scalar(row.detalhe)}`) };
   if (intent === "bills") {
@@ -48,9 +62,9 @@ export async function answerAccountQuestion(question: string, context: WebAssist
     const scope = generator ? (context.plantId ? `&usinaId=${encodeURIComponent(context.plantId)}` : "") : `&uc=${encodeURIComponent(String(context.unit!.numero))}`;
     return { text: describe(list(await get(`/faturas?categoria=concessionaria${scope}`)), "contas de luz", row => `${scalar(row.referencia)} · ${scalar(row.status)} · ${money(row.valor_total)}`), section: "Contas de luz" };
   }
-  if (intent === "profile") { const data = await get(`/auth/me?tipo=${context.variant}`); return { text: `Nome: ${scalar(data.nome)}\nPerfil: ${scalar(data.perfil)}`, section: "Perfil" }; }
+  if (intent === "profile") { const data = await get(`/auth/me?tipo=${context.variant}`); return { text: `Nome: ${scalar(data.nome)}\nE-mail: ${scalar(data.email)}\nTelefone: ${scalar(data.telefone)}\nEndereço: ${scalar(data.endereco)}\nPerfil: ${scalar(data.perfil)}`, section: "Perfil" }; }
   if (intent === "privacy") return { text: describe(list(await get("/privacidade/solicitacoes/minhas")), "pedidos de privacidade", row => `${scalar(row.detalhes?.tipo)} · ${scalar(row.detalhes?.status)} · protocolo ${scalar(row.id)}`), section: "Perfil" };
-  if (intent === "companies") return { text: describe(list(await get("/empresas")), "empresas", row => `${scalar(row.nome)} · ${scalar(row.papel)}`), section: generator ? "Empresas" : "Perfil" };
+  if (intent === "companies") return { text: describe(list(await get("/empresas/minhas")), "empresas", row => `${scalar(row.nome)} · ${scalar(row.papel)}`), section: "Empresas" };
   if (intent === "units") return { text: describe(list(await get(generator ? `/clientes/unidades${plantQuery}` : "/clientes/minhas-unidades")), "UCs", row => `${scalar(row.numero)} · ${scalar(row.modalidade_faturamento)}`), section: generator ? "Unidades consumidoras" : "Minha unidade" };
   if (intent === "invoices") {
     if (!generator && !context.unit?.numero) return { text: "Selecione sua UC no portal para consultar as faturas." };
@@ -59,9 +73,17 @@ export async function answerAccountQuestion(question: string, context: WebAssist
   }
   if (intent === "energy") {
     if (generator) return { text: "Selecione um consumidor e sua UC para consultar os dados energéticos.", section: "Clientes" };
-    if (!context.unit?.numero || !context.clientId) return { text: "Selecione sua UC para consultar o consumo e a economia." };
-    const data = await get(`/dashboard/cliente?clienteId=${encodeURIComponent(context.clientId)}&uc=${encodeURIComponent(String(context.unit.numero))}`);
-    return { text: `UC ${scalar(data.uc)} · ${scalar(data.ultimaFatura?.competencia)}\nConsumo: ${number(data.consumo)} kWh\nEnergia injetada: ${number(data.ultimaFatura?.energiaInjetada)} kWh\nEnergia compensada: ${number(data.ultimaFatura?.energiaCompensada)} kWh\nSaldo energético: ${number(data.creditos)} kWh\nEconomia do mês: ${money(data.economiaMes)}\nEconomia acumulada: ${money(data.economiaAcumulada)}`, section: "Economia" };
+    let unit = context.unit;
+    const requested = normalizeSolarRequest(question).match(/\b(?:uc\s+(?:final\s+)?|final\s+)(\d{3,})\b/)?.[1];
+    if (requested) {
+      const selected = list(await get("/clientes/minhas-unidades")).filter(item => String(item.numero ?? "").replace(/\D/g, "").endsWith(requested));
+      if (selected.length !== 1) return { text: "Informe uma única UC autorizada para consultar o consumo." };
+      unit = selected[0];
+    }
+    const clientId = unit?.cliente_id ?? context.clientId;
+    if (!unit?.numero || !clientId) return { text: "Selecione sua UC para consultar o consumo e a economia." };
+    const data = await get(`/dashboard/cliente?clienteId=${encodeURIComponent(clientId)}&uc=${encodeURIComponent(String(unit.numero))}`);
+    return { text: `UC ${scalar(unit.numero)} · ${scalar(data.ultimaFatura?.competencia)}\nConsumo: ${number(data.consumo)} kWh\nEnergia injetada: ${number(data.ultimaFatura?.energiaInjetada)} kWh\nEnergia compensada: ${number(data.ultimaFatura?.energiaCompensada)} kWh\nSaldo energético: ${number(data.saldoAtual ?? data.creditos)} kWh\nEconomia do mês: ${money(data.economiaMes)}\nEconomia acumulada: ${money(data.economiaAcumulada)}`, section: "Economia" };
   }
   if (intent === "contracts") {
     if (!generator) {

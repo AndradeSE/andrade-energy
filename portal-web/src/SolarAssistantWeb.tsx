@@ -6,6 +6,7 @@ import { planSolarFlow, solarTopic, type SolarFlow } from "./assistantFlows";
 import { createAutomationExecutor, parseAutomationCommand, prepareAutomation, type AutomationDraft, type AutomationContext } from "./assistantAutomation";
 import { solarSuggestions } from "../../shared/solar-language";
 import { contractGuidance } from "./contractGuidance";
+import { inheritWebUnit } from "./assistantContextWeb";
 type Message = { role: "user" | "model"; text: string; answerId?: string; private?: boolean; section?: string };
 export default function SolarAssistantWeb({ apiUrl, token, variant, context, onNavigate, onFlow, onChanged }: { apiUrl: string; token: string; variant: "CONSUMIDOR" | "GERADOR"; context: WebAssistantContext; onNavigate: (section: string) => void; onFlow: (flow: SolarFlow) => Promise<string> | string; onChanged?: () => void }) {
   const [open, setOpen] = useState(false);
@@ -91,7 +92,7 @@ export default function SolarAssistantWeb({ apiUrl, token, variant, context, onN
   }
   async function submit(event: FormEvent) {
     event.preventDefault();
-    const text = question.trim();
+    const text = inheritWebUnit(question.trim(), messages);
     if (!text || submitting.current || busy || recording) return;
     submitting.current = true;
     const command = parseAutomationCommand(text);
