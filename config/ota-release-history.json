@@ -1,5 +1,14 @@
 [
   {
+    "numero": "OTA 20261115-095829",
+    "data": "15/11/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Homologacao consolidada: clima igual Gerador e contrato direto Solar"
+    ]
+  },
+  {
     "numero": "OTA 20261115-095515",
     "data": "15/11/2026",
     "variant": "consumidor",
