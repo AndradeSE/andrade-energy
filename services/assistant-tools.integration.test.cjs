@@ -186,3 +186,56 @@ test('sem usina ou permissão administrativa não busca dados fora do contexto',
   }
   assert.equal(f.calls.length, 0);
 });
+
+test('Cliente consulta perfil pelo ambiente Consumidor', async () => {
+  const f=fixture(); const ctx={...f.ctx,generator:false,plantId:undefined};
+  const reply=await f.queryLiveAccount('meus dados',ctx);
+  assert.match(reply.text,/teste@example.com/);
+  assert.deepEqual(f.calls.find(([name])=>name==='me')[1],['CONSUMIDOR']);
+});
+
+test('Cliente consulta economia somente da UC própria selecionada', async () => {
+  const f=fixture(); const ctx={...f.ctx,generator:false,plantId:undefined};
+  const reply=await f.queryLiveAccount('qual minha economia',ctx);
+  assert.match(reply.text,/854652001898.*800,00/s);
+  assert.deepEqual(f.calls.find(([name])=>name==='buscarDashboard')[1],['c1','854652001898']);
+  assert.equal(f.calls.some(([name])=>name==='listarUnidadesGestor'),false);
+});
+
+test('Cliente sem UC própria selecionada não consulta dashboard de outro contexto', async () => {
+  const f=fixture();
+  const reply=await f.queryLiveAccount('qual minha economia',{generator:false,unitId:'nao-autorizada'});
+  assert.match(reply.text,/Selecione uma das suas UCs/);
+  assert.equal(f.calls.some(([name])=>name==='buscarDashboard'),false);
+});
+
+test('Cliente distingue consumo médio cadastrado do último consumo da fatura', async () => {
+  const f=fixture(); const ctx={...f.ctx,generator:false,plantId:undefined};
+  assert.match((await f.queryLiveAccount('qual o consumo médio da minha UC',ctx)).text,/431 kWh/);
+  assert.match((await f.queryLiveAccount('qual foi o consumo da UC final 1898',ctx)).text,/420 kWh/);
+  const invoiceCall=f.calls.find(([name])=>name==='listarFaturas');
+  assert.deepEqual(invoiceCall[1],['c1','854652001898',undefined]);
+});
+
+test('Cliente abre contrato da UC selecionada sem consultar contratos da empresa', async () => {
+  const f=fixture(); const ctx={...f.ctx,generator:false,plantId:undefined};
+  const reply=await f.queryLiveAccount('abra o PDF do meu contrato',ctx);
+  assert.deepEqual(reply.documents.map(doc=>[doc.kind,doc.id]),[['contrato','u1']]);
+  assert.equal((await f.resolveAssistantDocument(reply.documents[0])).url,'https://example.com/contrato.pdf');
+  assert.equal(f.calls.some(([name])=>name==='listarContratosDaEmpresa'),false);
+});
+
+test('Cliente consulta autoleituras pelo serviço próprio e não inventa protocolo', async () => {
+  const f=fixture(); const ctx={...f.ctx,generator:false,plantId:undefined};
+  const reply=await f.queryLiveAccount('consulte histórico de leituras da UC final 1898',ctx);
+  assert.match(reply.text,/Não há leituras recebidas/);
+  assert.deepEqual(f.calls.find(([name])=>name==='listarMinhasAutoleituras')[1],['u1']);
+  assert.equal(f.calls.some(([name])=>name==='listarAutoleituras'),false);
+});
+
+test('Cliente consulta privacidade sem emitir solicitação ou apagar dados', async () => {
+  const f=fixture(); const ctx={...f.ctx,generator:false,plantId:undefined};
+  const reply=await f.queryLiveAccount('consulte pedidos de privacidade',ctx);
+  assert.match(reply.text,/ACESSO/);
+  assert.equal(f.calls.some(([name])=>name==='post'),false);
+});
