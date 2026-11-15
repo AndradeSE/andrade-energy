@@ -1,5 +1,32 @@
 [
   {
+    "numero": "OTA 20261115-092906",
+    "data": "15/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Restaurar ativacao funcional apenas Solar"
+    ]
+  },
+  {
+    "numero": "OTA 20261115-092647",
+    "data": "15/11/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Restaurar ativacao funcional apenas Solar"
+    ]
+  },
+  {
+    "numero": "OTA 20261115-092400",
+    "data": "15/11/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Restaurar ativacao funcional apenas Solar"
+    ]
+  },
+  {
     "numero": "OTA 20261115-091341",
     "data": "15/11/2026",
     "variant": "consumidor",
