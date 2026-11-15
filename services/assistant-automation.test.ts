@@ -36,3 +36,55 @@ test('valor inválido ou falta de acesso não consulta nem altera cadastro', asy
   await assert.rejects(prepareAutomation(parseAutomationCommand('altere meu nome para Pessoa Teste')!, { ...context, allowedSections: [] }, io));
   assert.equal(calls, 0);
 });
+
+test('alteração de cliente usa a usina autorizada e confirma o registro exato', async () => {
+  const requests: string[] = [];
+  let client = { id: 'c1', nome: 'Cliente Exemplo', telefone: '35999999999' };
+  const io = {
+    get: async (path: string) => { requests.push(path); return path.startsWith('/clientes?') ? [client] : { ...client }; },
+    change: async (path: string, method: 'PUT' | 'PATCH', body: Record<string, unknown>) => {
+      requests.push(`${method} ${path}`); client = { ...client, ...body }; return client;
+    },
+  };
+  const draft = await prepareAutomation(parseAutomationCommand('altere o telefone do cliente Cliente Exemplo para 35988888888')!, context, io, 1000);
+  assert.equal(draft.targetId, 'c1'); assert.equal(draft.before.telefone, '35999999999');
+  await createAutomationExecutor()(draft, context, io, 2000);
+  assert.ok(requests.includes('/clientes?usinaId=p1')); assert.ok(requests.includes('PUT /clientes/c1'));
+  assert.equal(client.telefone, '35988888888');
+});
+
+test('cliente removido da usina após a revisão não pode ser editado', async () => {
+  let accessible = true, writes = 0;
+  const client = { id: 'c1', nome: 'Cliente Exemplo', telefone: '35999999999' };
+  const io = { get: async (path: string) => path.startsWith('/clientes?') ? accessible ? [client] : [] : client,
+    change: async () => { writes++; return client; } };
+  const draft = await prepareAutomation(parseAutomationCommand('altere o telefone do cliente Cliente Exemplo para 35988888888')!, context, io, 1000);
+  accessible = false;
+  await assert.rejects(createAutomationExecutor()(draft, context, io, 2000), /não pertence mais/);
+  assert.equal(writes, 0);
+});
+
+test('renomeia somente a usina selecionada e não aceita homônimos', async () => {
+  let writes = 0;
+  const plant = { id: 'p1', nome: 'Usina Exemplo' };
+  const io = { get: async (path: string) => path === '/usinas' ? [plant] : plant,
+    change: async (_path: string, _method: 'PUT' | 'PATCH', body: Record<string, unknown>) => { writes++; return { ...plant, ...body }; } };
+  const command = parseAutomationCommand('renomeie a usina Usina Exemplo para Usina Teste')!;
+  await assert.rejects(prepareAutomation(command, { ...context, plantId: 'other' }, io), /Selecione essa usina/);
+  const draft = await prepareAutomation(command, context, io, 1000);
+  const result = await createAutomationExecutor()(draft, context, io, 2000);
+  assert.equal(result.nome, 'Usina Teste'); assert.equal(writes, 1);
+  await assert.rejects(prepareAutomation(command, context, { ...io, get: async () => [plant, { ...plant, id: 'p2' }] }), /único cadastro/);
+});
+
+test('apelido do Consumidor é alterado apenas em uma de suas próprias UCs', async () => {
+  const consumer: AutomationContext = { variant: 'CONSUMIDOR', scope: 'consumer:u1', allowedSections: ['Minha unidade'] };
+  const unit = { id: 'u1', numero: '123456789', apelido: 'Casa' };
+  const io = { get: async () => [unit], change: async (path: string, method: 'PUT' | 'PATCH', body: Record<string, unknown>) => {
+    assert.equal(path, '/clientes/minhas-unidades/u1/apelido'); assert.equal(method, 'PATCH'); return { ...unit, ...body };
+  } };
+  const command = parseAutomationCommand('renomeie a UC 123456789 para Loja')!;
+  const draft = await prepareAutomation(command, consumer, io, 1000);
+  assert.equal((await createAutomationExecutor()(draft, consumer, io, 2000)).apelido, 'Loja');
+  await assert.rejects(prepareAutomation({ ...command, target: '999999999' }, consumer, io), /único cadastro/);
+});
