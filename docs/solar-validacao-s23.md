@@ -55,3 +55,19 @@ Não considerar esta matriz como validação de todas as operações: abertura d
 - Tempo de tela restaurado e conferido em 30 segundos ao encerrar.
 
 Total automatizado desta revisão: 36 testes de integração, 56 de serviços e quatro de runtime. O teste unitário da economia verifica ID e rota da UC; o toque nessa última rota e todas as variações por voz/perfil não foram reconferidos. Portanto, esta evidência não autoriza afirmar que todo fluxo possível de todos os módulos está homologado.
+
+## Fechamento da rodada de consultas e navegação
+
+Na revisão Preview 4f809119, foram reconferidos:
+
+- Economia: botão abriu os detalhes da UC 854652001898, com cliente e usina corretos.
+- Perfil: preparação de alteração exibiu antes/depois; Cancelar removeu a revisão; nova consulta confirmou o nome original. Nenhum salvamento real foi feito.
+- Cotas: botão abriu Administração / Cotas de serviços.
+- Assinatura e Termos: botões abriram Meu plano, com ausência de assinatura coerente com a conta de teste. Os termos já haviam retornado no chat.
+- Sobre: botão abriu a revisão instalada 4f809119 e suas notas.
+- Leituras: consulta respondeu ausência de leituras; botão abriu a lista de UCs do Gerador. Não é abertura direta de um histórico específico.
+- Pagamento: opção abriu o detalhe de OUT/2026 da UC final 1898, sem efetuar pagamento.
+- Recebimento: botão abriu a configuração da geradora 1121361801894, sem modificá-la.
+- Empresas: botão abriu o seletor de áreas; nenhuma empresa foi trocada por suposição.
+
+Quatro testes adicionais de automação cadastral passaram: revisão sem escrita, confirmação única, contexto/expiração/cadastro alterado e valor inválido/permissão ausente. Total: **100 testes automatizados**. A rodada de consultas dos 28 módulos, documentos disponíveis e navegações acima está registrada; não inclui execução financeira, assinatura, envio à Cemig, gravação real de cada cadastro nem todas as combinações de voz e perfis. Esses limites são de cobertura, e não devem ser ocultados por uma declaração de ponta a ponta irrestrito.
