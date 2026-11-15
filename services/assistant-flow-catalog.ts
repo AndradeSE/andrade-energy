@@ -2,11 +2,11 @@ import type { AssistantModule } from "./assistant-capabilities";
 
 export const SOLAR_FLOW_CATALOG: Record<AssistantModule, string> = {
   clientes: "Pesquisar na usina atual; consultar nome, e-mail, telefone, WhatsApp e endereço por cliente ou UC; abrir ficha e cadastro.",
-  unidades: "Consultar UCs e consumo médio mensal cadastrado por nome do cliente, UC completa ou final; abrir configuração. Média cadastrada não é consumo da última fatura.",
+  unidades: "Consultar número, apelido, concessionária, titular, endereço, situação, localização rural/urbana, modalidade, desconto, rateio e consumo médio cadastrado por cliente, UC completa ou final. Consultar a ferramenta, sem presumir Cemig nem campos ausentes; abrir configuração. Média cadastrada não é consumo da última fatura.",
   usinas: "Listar usinas autorizadas; consultar indicadores da usina selecionada. Não trocar a seleção por suposição.",
   faturamento: "Listar faturas autorizadas; abrir faturamento manual ou importação para revisão.",
   "conta-luz": "Consultar consumo e dados Cemig por UC e competência; abrir PDF disponível. Usar cliente cadastrado, não titular da conta.",
-  contratos: "Localizar por cliente ou final da UC; abrir PDF e consultar trechos. Abrir contrato significa mostrar documento, salvo pedido explícito pela lista. Nunca assinar.",
+  contratos: "Localizar por cliente ou final da UC; consultar número, situação, plano, fidelidade, desconto e datas de vigência do contrato vinculado; abrir PDF e consultar trechos. Abrir contrato significa mostrar documento, salvo pedido explícito pela lista. Nunca assinar.",
   proposta: "Abrir propostas disponíveis sem enviar convite ou registrar aceite.",
   calculo: "Abrir memória de cálculo da fatura autorizada.",
   anexos: "Consultar anexos do cliente e abrir arquivos. Solicitar nova UC abre formulário para revisão.",

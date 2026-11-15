@@ -1,3 +1,4 @@
+import { requestedUnitDetails } from "./assistant-unit-details";
 import { detectProductionMetric } from "./assistant-production";
 import { contractUnitDigits } from "./assistant-contract-unit";
 import { asksAverageConsumption, detectCapability } from "./assistant-capabilities";
@@ -21,7 +22,7 @@ export function resolveSafeNavigation(question: string, ctx: SafeNavigationConte
   // A request for a value or a document must reach the authenticated query,
   // rather than be swallowed by a generic screen-navigation match.
   if (detectCapability(text)?.module === "sobre" && !/^\b(?:abra|abre|abrir|acesse|acessar|va para|ir para)\b/.test(text)) return undefined;
-  if (asksAverageConsumption(text) || detectCapability(text)?.mode === "document" && !/\bcontratos?\b/.test(text)) return undefined;
+  if (requestedUnitDetails(text).length || asksAverageConsumption(text) || detectCapability(text)?.mode === "document" && !/\bcontratos?\b/.test(text)) return undefined;
   if (isSolarHelp(text) || hasSolarMutation(text) || detectProductionMetric(text) === "energiaDisponivel") return undefined;
   if (!/^(?:abra|abrir|acesse|acessar|abre|me leve para|vai para|va para|entre|entrar|ir para|volte|voltar|mostre|mostra|mostrar|busque|buscar|procure|procurar|pesquise|pesquisar|filtre|filtrar)\b/.test(text)) return undefined;
   if (/\b(clausula|consta|escrito|diz|e-?mail|telefone|celular|whatsapp|endereco|contato|valor|quanto|saldo|total|ultima|ultimo|arquivo|documento|memoria de calculo)\b/.test(text)) return undefined;

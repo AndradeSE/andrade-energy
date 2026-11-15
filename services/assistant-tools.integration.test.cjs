@@ -13,6 +13,7 @@ function fixture() {
   const client = { id: 'c1', nome: 'Cliente Exemplo', email: 'teste@example.com', status: 'ATIVO' };
   const unit = { id: 'u1', numero: '854652001898', cliente_id: client.id, clientes: client,
     consumo_medio_kwh: 431, desconto_percentual: 40, status: 'ATIVA' };
+  const contract = { status: 'VIGENTE', contrato_assinado_url: 'https://example.com/contrato.pdf' };
   const invoices = [
     { id: 'f2', cliente_id: 'c2', unidade_consumidora_id: 'u2', numero_instalacao: '999999001899', referencia: '11/2026', consumo_kwh: 900, status: 'EMITIDA', pdf_cemig_url: 'https://example.com/outra.pdf' },
     { id: 'f1', cliente_id: client.id, unidade_consumidora_id: unit.id, numero_instalacao: unit.numero, referencia: '10/2026', consumo_kwh: 420, status: 'EMITIDA', pdf_cemig_url: 'https://example.com/cemig.pdf', valor_total: 200 },
@@ -22,14 +23,14 @@ function fixture() {
     './app-release-notes': { appReleaseSummary: () => 'Solar · revisão de teste · atualização disponível' },
     '../config/api': { default: { post: fn('post', { data: { trechos: ['Cláusula de teste'], temTexto: true } }) }, __esModule: true },
     './clientes.service': {
-      listarClientes: fn('listarClientes', [client]), buscarCliente: fn('buscarCliente', client),
+      buscarUnidade: fn('buscarUnidade', unit), listarClientes: fn('listarClientes', [client]), buscarCliente: fn('buscarCliente', client),
       listarUnidadesGestor: fn('listarUnidadesGestor', [unit]), listarMinhasUnidades: fn('listarMinhasUnidades', [unit]),
       listarAutoleituras: fn('listarAutoleituras', [{ data_programada: '2026-11-14', leitura_kwh: 1234, estado: 'RECEBIDA' }]),
       listarMinhasAutoleituras: fn('listarMinhasAutoleituras', []),
       listarFaturasAnexadasCliente: fn('listarFaturasAnexadasCliente', [{ id: 'a1', nome: 'Conta anexada', url: 'https://example.com/anexo.pdf' }]),
     },
     './faturas.service': { listarFaturas: fn('listarFaturas', invoices), buscarFatura: fn('buscarFatura', id => invoices.find(f => f.id === id)), obterRelatorioCalculoFatura: fn('obterRelatorioCalculoFatura', 'https://example.com/calculo.pdf') },
-    './contratos.service': { listarContratosDaEmpresa: fn('listarContratosDaEmpresa', [{ id: 'k1', clientes: client, status: 'VIGENTE' }]), buscarContratoDaUnidade: fn('buscarContratoDaUnidade', { status: 'VIGENTE', contrato_assinado_url: 'https://example.com/contrato.pdf' }), baixarPropostaDaUnidade: fn('baixarPropostaDaUnidade', '/proposta.pdf') },
+    './contratos.service': { listarContratosDaEmpresa: fn('listarContratosDaEmpresa', [{ id: 'k1', clientes: client, status: 'VIGENTE' }]), buscarContratoDaUnidade: fn('buscarContratoDaUnidade', contract), baixarPropostaDaUnidade: fn('baixarPropostaDaUnidade', '/proposta.pdf') },
     './cotas-servicos.service': { listServiceQuotas: fn('listServiceQuotas', { servicos: [{ servico: 'render', rotulo: 'Render', unidade: 'horas', leitura: { usado: 5, limite: 10, restante: 5 } }] }) },
     './auth.service': { me: fn('me', client), listarMeusPedidosDePrivacidade: fn('listarMeusPedidosDePrivacidade', [{ detalhes: { tipo: 'ACESSO', status: 'RECEBIDO' } }]) },
     './dashboard.service': { buscarDashboard: fn('buscarDashboard', { economiaMes: 80, economiaAcumulada: 800, saldoAtual: 100, ultimaFatura: { energiaCompensada: 300 } }) },
@@ -66,7 +67,7 @@ function fixture() {
     ...load(path.join(__dirname, 'assistant-live-account.ts')),
     ...load(path.join(__dirname, 'assistant-unit-query.ts')),
     ...load(path.join(__dirname, 'assistant-economy-calculator.ts')),
-    reloadHistory: () => { const file = path.join(__dirname, 'assistant-chat-history.ts'); cache.delete(file); return load(file); }, calls, unit,
+    reloadHistory: () => { const file = path.join(__dirname, 'assistant-chat-history.ts'); cache.delete(file); return load(file); }, calls, unit, contract,
     ctx: { generator: true, plantId: 'p1', unitId: unit.id, unitNumber: unit.numero, clientId: client.id, role: 'ADMIN' } };
 }
 
@@ -267,3 +268,61 @@ test('acompanhamento da concessionaria preserva a UC anteriormente consultada',(
  assert.equal(f.inheritAssistantUnitTarget('e a concessionaria?','consumo da UC final 1898'),'e a concessionaria da UC 1898');
 });
 
+
+for (const generator of [true,false]) test(`cadastro completo da UC responde campos autorizados (gerador=${generator})`,async()=>{
+ const f=fixture(); Object.assign(f.unit,{distribuidora:'ENERGISA',titular:'Titular da conta',endereco:'Rua de Teste 123',apelido:'Loja',zona_localizacao:'RURAL',modalidade_faturamento:'COMPENSACAO',percentual_rateio:'2.75'});
+ for(const [question,expected] of [
+  ['qual o titular da UC final 1898',/Titular da conta/],
+  ['qual o endereco da UC final 1898',/Rua de Teste 123/],
+  ['qual o apelido da UC final 1898',/Loja/],
+  ['qual o numero da minha UC',/854652001898/],
+  ['qual a situacao da UC final 1898',/ATIVA/],
+  ['a UC final 1898 e rural ou urbana',/RURAL/],
+  ['qual a modalidade da UC final 1898',/COMPENSACAO/],
+  ['qual o desconto da UC final 1898',/40%/],
+  ['qual o rateio da UC final 1898',/2,75%/],
+  ['mostre os dados da UC final 1898',/Concessionária: ENERGISA/],
+ ]) {
+   assert.equal(f.detectCapability(question)?.module,'unidades',question);
+   const reply=await f.queryLiveAccount(question,{...f.ctx,generator});
+   assert.match(reply.text,expected,question);
+   assert.deepEqual(reply.actions??[],[],question);
+ }
+ assert.equal(f.calls.some(([name])=>name==='listarFechamentos'),false);
+ assert.equal(f.calls.some(([name])=>name==='buscarDashboard'),false);
+});
+test('dados da UC nao confundem cliente, titular anterior ou alvo fora do acesso',async()=>{
+ const f=fixture(); f.unit.titular='Titular correto';
+ assert.match((await f.queryLiveAccount('qual o titular da UC 999999999999',f.ctx)).text,/Não encontrei/);
+ assert.equal(f.calls.some(([name])=>name==='buscarUnidade'),false);
+ assert.equal(f.detectCapability('qual o endereco do cliente Exemplo').module,'clientes');
+ const missing=await f.queryLiveAccount('qual o endereco da UC final 1898',f.ctx);
+ assert.match(missing.text,/não informado/);
+ assert.doesNotMatch(missing.text,/undefined|null|\[object Object\]/);
+});
+
+for (const generator of [true,false]) test(`condicoes do contrato usam vinculo da UC e datas cadastradas (gerador=${generator})`,async()=>{
+ const f=fixture(); Object.assign(f.contract,{numero:'QA-1',desconto:40,vigencia_inicio:'2026-10-03',vigencia_fim:'2036-10-03',configuracao_uc_snapshot:{plano_contrato:'COM_FIDELIDADE'}});
+ const reply=await f.queryLiveAccount('quando vence o contrato da UC final 1898',{...f.ctx,generator});
+ assert.match(reply.text,/03\/10\/2036/); assert.match(reply.text,/Com fidelidade/); assert.match(reply.text,/40%/);
+ assert.deepEqual(f.calls.find(([n])=>n==='buscarContratoDaUnidade')[1],['u1']);
+ assert.equal(f.calls.some(([n])=>n==='listarContratosDaEmpresa'),false);
+ f.contract.configuracao_uc_snapshot.plano_contrato='SEM_FIDELIDADE';
+ assert.match((await f.queryLiveAccount('qual o plano da UC final 1898',{...f.ctx,generator})).text,/Indeterminado/);
+});
+test('contrato ausente ou incompleto nao inventa desconto ou fidelidade',async()=>{
+ const f=fixture();
+ const reply=await f.queryLiveAccount('qual o desconto do contrato da UC final 1898',{...f.ctx,generator:false});
+ assert.match(reply.text,/Desconto contratado: não informado/); assert.match(reply.text,/Plano: não informado/);
+ assert.match((await f.queryLiveAccount('quando vence o contrato da UC 999999999999',f.ctx)).text,/Não encontrei/);
+});
+
+test('Consumidor consulta contato somente do cliente de sua UC sem listar carteira',async()=>{
+ const f=fixture(); const reply=await f.queryLiveAccount('qual o email da UC final 1898',{...f.ctx,generator:false});
+ assert.match(reply.text,/teste@example.com/);
+ assert.equal(f.calls.some(([n])=>n==='listarClientes'),false);
+ assert.deepEqual(f.calls.find(([n])=>n==='buscarCliente')[1],['c1']);
+ const before=f.calls.filter(([n])=>n==='buscarCliente').length;
+ assert.match((await f.queryLiveAccount('qual o email da UC 999999999999',{...f.ctx,generator:false})).text,/Selecione/);
+ assert.equal(f.calls.filter(([n])=>n==='buscarCliente').length,before);
+});

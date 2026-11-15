@@ -1,3 +1,6 @@
+import { clientDetailsReply } from "./assistant-client-details";
+import { asksContractDetails, contractDetailsReply } from "./assistant-contract-details";
+import { requestedUnitDetails, unitDetailsReply } from "./assistant-unit-details";
 import { appReleaseSummary } from "./app-release-notes";
 import { resumoContaConcessionaria, resumoUltimoConsumo, selecionarFaturasConsumo } from "./assistant-invoice-summary";
 import { contractUnitDigits, matchesContractUnit } from "./assistant-contract-unit";
@@ -18,7 +21,7 @@ import { obterMinhaAssinatura, obterTermosAssinatura, obterPainelComercial } fro
 import { obterRecebimentoFaturas } from "./recebimento-faturas.service";
 import { listarConexoesEmail } from "./conexoes-email.service";
 import { listarFaturas, buscarFatura, obterRelatorioCalculoFatura } from "./faturas.service";
-import { buscarCliente, listarClientes, listarFaturasAnexadasCliente, listarUnidadesGestor, listarMinhasUnidades } from "./clientes.service";
+import { buscarUnidade, buscarCliente, listarClientes, listarFaturasAnexadasCliente, listarUnidadesGestor, listarMinhasUnidades } from "./clientes.service";
 import { buscarContratoDaUnidade, listarContratosDaEmpresa, baixarPropostaDaUnidade } from "./contratos.service";
 import { invoiceDocumentChoices } from "./local-assistant-invoices";
 
@@ -66,7 +69,7 @@ function routeFor(intent: AssistantIntent, ctx: AssistantAccountContext, questio
 export async function executeAssistantTool(intent: AssistantIntent, ctx: AssistantAccountContext, question: string): Promise<AssistantToolReply> {
   if (intent.module === "assistente-config") return { text: "As preferências ficam em Menu lateral → Configurações da Solar: início por voz, botão flutuante e permissões de áudio. Abra a tela para revisar e escolher; ainda não alterei nenhuma configuração.", actions: [{ label: "Configurações da Solar", route: "/configuracoes-assistente" }] };
   if (intent.module === "tutoriais") return { text: "Os tutoriais estão desativados por tempo indeterminado. Posso explicar as funções do aplicativo por aqui." };
-  const generatorOnly = ["cotas", "carteira", "equipe", "atividade", "operacao", "inversores", "assinatura", "termos", "comercial", "clientes", "usinas"];
+  const generatorOnly = ["cotas", "carteira", "equipe", "atividade", "operacao", "inversores", "assinatura", "termos", "comercial", "usinas"];
   if (!ctx.generator && intent.module === "faturamento" && intent.review) return { text: "Emissão e alterações de faturamento exigem acesso de gerador autorizado. Posso consultar suas faturas." };
   if (!ctx.generator && generatorOnly.includes(intent.module)) return { text: "Essa função pertence ao gerador ou à administração e não está disponível no seu acesso. Posso consultar os dados, faturas e contrato das suas UCs." };
   if (intent.module === "comercial" && ctx.role !== "ADMIN") return { text: "Esta consulta administrativa exige acesso de administrador. Não vou ampliar suas permissões." };
@@ -82,6 +85,20 @@ export async function executeAssistantTool(intent: AssistantIntent, ctx: Assista
     const utility = typeof unit.distribuidora === "string" ? unit.distribuidora.trim() : "";
     return { text: utility ? `A concessionária da UC ${scalar(unit.numero)} é ${utility}.\nFonte: cadastro da unidade.` : `A concessionária da UC ${scalar(unit.numero)} não está informada no cadastro.`, actions: [] };
   }
+  const detailKeys = requestedUnitDetails(question);
+  if (!intent.review && detailKeys.length && !asksAverageConsumption(question)) {
+    if (ctx.generator && !ctx.plantId) return { text: "Selecione a usina para consultar o cadastro da UC." };
+    const units = onlyArray(await (ctx.generator ? listarUnidadesGestor(ctx.plantId) : listarMinhasUnidades()));
+    const selected = selectAssistantUnits(units, question, ctx);
+    if (selected.length !== 1) return { text: selected.length ? "Encontrei mais de uma UC. Informe o número ou final da unidade." : "Não encontrei essa UC no acesso atual." };
+    let unit = selected[0];
+    if (detailKeys.some(key => unit[key] === undefined) && !String(unit.id).startsWith("cliente-")) {
+      const detail = await buscarUnidade(unit.id);
+      if (!detail || detail.id !== unit.id) throw new Error("Cadastro da UC não confirmado.");
+      unit = { ...unit, ...detail };
+    }
+    return { text: unitDetailsReply(unit, detailKeys), actions: [] };
+  }
   if (!intent.review && asksAverageConsumption(question)) {
     if (ctx.generator && !ctx.plantId) return { text: "Selecione uma usina para consultar o consumo médio cadastrado." };
     const units = onlyArray(await (ctx.generator ? listarUnidadesGestor(ctx.plantId) : listarMinhasUnidades()));
@@ -90,7 +107,7 @@ export async function executeAssistantTool(intent: AssistantIntent, ctx: Assista
   }
   const ucPdf = contractUnitDigits(pedido);
   const alvoPdf = pedido.match(/\bcontrato\s+(?:do|da|de)\s+(?:cliente\s+)?(.+?)[.!?]*$/)?.[1]?.trim();
-  if (intent.module === "contratos" && !intent.review && ctx.generator && (alvoPdf || ucPdf) &&
+  if (intent.module === "contratos" && !intent.review && !asksContractDetails(question) && ctx.generator && (alvoPdf || ucPdf) &&
       /\b(qual|quanto|quando|clausula|texto|escrito|diz|consta)\b/.test(pedido)) {
     if (!ctx.plantId) return { text: "Selecione a usina para consultar o contrato." };
     const contratos = onlyArray(await listarContratosDaEmpresa(ctx.plantId));
@@ -171,8 +188,14 @@ export async function executeAssistantTool(intent: AssistantIntent, ctx: Assista
       return { text: `Usina selecionada · competência ${scalar(data.competencia)}\nEnergia gerada: ${displayNumber(data.energiaGerada)} kWh\nEnergia acumulada: ${displayNumber(data.energiaTotal)} kWh\nEnergia disponível para venda: ${displayNumber(data.energiaDisponivel)} kWh\nOcupação: ${displayNumber(data.ocupacao)}%`, actions: [action("Ver usina selecionada", "/(tabs)")] };
     }
     case "clientes": {
-      if (!ctx.plantId) return { text: "Selecione a usina para consultar o cadastro do cliente." };
       const pedido = normalizeCapabilityText(question);
+      if (!ctx.generator) {
+        if (intent.review || !/\b(e-?mail|telefone|celular|whatsapp|endereco|cpf|cnpj|nome|dados|contato)\b/.test(pedido)) return { text: "Listar clientes pertence ao gerador e não está disponível no seu acesso. Posso consultar apenas o cadastro vinculado às suas UCs." };
+        const units = selectAssistantUnits(onlyArray(await listarMinhasUnidades()), question, ctx);
+        if (units.length !== 1 || !units[0].cliente_id) return { text: "Selecione uma das suas UCs para consultar o cliente vinculado." };
+        return { text: clientDetailsReply(await buscarCliente(units[0].cliente_id), question), actions: [] };
+      }
+      if (!ctx.plantId) return { text: "Selecione a usina para consultar o cadastro do cliente." };
       const clientes = onlyArray(await listarClientes(ctx.plantId));
       const nomePedido = pedido.match(/\b(?:cliente|consumidor(?:a)?)\s+(.+?)[.!?]*$/)?.[1]?.trim();
       const unitDigits = contractUnitDigits(pedido);
@@ -186,16 +209,7 @@ export async function executeAssistantTool(intent: AssistantIntent, ctx: Assista
         return { text: encontrados.length ? "Encontrei mais de um cliente. Informe o nome completo." : "Qual é o nome do cliente cadastrado nesta usina?", actions };
       }
       const cliente = await buscarCliente(String(encontrados[0].id));
-      const campos = [
-        { label: "E-mail", value: cliente?.email, match: /\be-?mail\b/ },
-        { label: "Telefone", value: cliente?.telefone, match: /\b(telefone|celular)\b/ },
-        { label: "WhatsApp", value: cliente?.whatsapp, match: /\bwhatsapp\b/ },
-        { label: "Endereço", value: cliente?.endereco, match: /\bendereco\b/ },
-      ];
-      const solicitados = campos.filter(campo => campo.match.test(pedido));
-      const linhas = (solicitados.length ? solicitados : campos)
-        .map(({ label, value }) => `${label}: ${String(value ?? "").trim() || "não informado"}`);
-      return { text: [cliente?.nome ?? encontrados[0].nome, ...linhas].join("\n"), actions };
+      return { text: clientDetailsReply(cliente, question), actions };
     }
     case "faturamento": {
       if (ctx.generator && !ctx.plantId) return { text: "Selecione a usina para consultar as faturas." };
@@ -294,6 +308,11 @@ export async function executeAssistantTool(intent: AssistantIntent, ctx: Assista
       const specific = contractUnitDigits(pedido) || /\b(?:cliente|consumidor)\s+\S/.test(pedido) || ctx.unitId;
       const selected = specific || requested.length ? requested : units;
       if (intent.module === "proposta") return { text: "Escolha a UC para abrir a proposta disponível. Isso não envia convite nem registra aceite.", documents: selected.slice(0, 12).map(u => ({ kind: "proposta", id: u.id, label: `Proposta · UC ${scalar(u.numero)}` })) };
+      if (intent.module === "contratos" && asksContractDetails(question)) {
+        if (selected.length !== 1) return { text: selected.length ? "Informe a UC para consultar as condições do contrato correto." : "Não encontrei essa UC no acesso atual." };
+        const contract = await buscarContratoDaUnidade(selected[0].id);
+        return { text: contract ? contractDetailsReply(contract, String(selected[0].numero ?? "selecionada")) : "Não encontrei contrato vinculado a essa UC.", actions: [] };
+      }
       if (ctx.generator && intent.mode !== "document") {
         const contracts = onlyArray(await listarContratosDaEmpresa(ctx.plantId));
         return { text: listText(contracts, "contratos", c => `${scalar(c.clientes?.nome, "Cliente")} · ${scalar(c.numero, "sem número")} · ${scalar(c.status)}`), actions };
@@ -387,3 +406,4 @@ export async function resolveAssistantDocument(doc: AssistantDocument): Promise<
   const rows = await listarFaturasAnexadasCliente(doc.clientId);
   return { url: rows.find(row => row.id === doc.id)?.url };
 }
+

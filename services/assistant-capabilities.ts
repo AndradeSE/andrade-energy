@@ -1,3 +1,6 @@
+import { asksContractDetails } from "./assistant-contract-details";
+import { requestedUnitDetails } from "./assistant-unit-details";
+
 // Registro explícito: texto do usuário nunca escolhe URL, endpoint ou ID de outra conta.
 export type AssistantModule = "leituras" | "cotas" | "assistente-config" | "perfil" | "economia" | "carteira" | "equipe" | "atividade" | "operacao" | "inversores" | "recebimento" | "assinatura" | "termos" | "empresas" | "comercial" | "privacidade" | "contratos" | "conta-luz" | "calculo" | "anexos" | "proposta" | "pagamento" | "clientes" | "usinas" | "unidades" | "faturamento" | "tutoriais" | "sobre";
 export type AssistantIntent = { module: AssistantModule; mode: "query" | "document" | "action"; review: boolean };
@@ -12,7 +15,8 @@ export function detectCapability(input: string): AssistantIntent | undefined {
   if (/\b(solar|assistente)\b/.test(text) && /\b(configuracoes|configurar|voz|flutuante|ativar|desativar|ligar|desligar)\b/.test(text)) return { module: "assistente-config", mode: "action", review: false };
   if (/\b(versao|revisao|atualizac(?:ao|oes)|novidades|ota|sobre o app)\b/.test(text) && !hasSolarMutation(text) && !/^(?:como|onde)\b/.test(text)) return { module: "sobre", mode: "query", review: false };
   if (isSolarHelp(text)) return undefined;
-  if (asksUnitUtility(text)) return { module: "unidades", mode: "query", review: false };
+  if (asksContractDetails(text)) return { module: "contratos", mode: "query", review: false };
+  if (requestedUnitDetails(text).length || asksUnitUtility(text)) return { module: "unidades", mode: "query", review: false };
   const wantsDocument = /\b(pdf|arquivo|documento|baixar|baixa|baixe|download|mande|manda|envie|entregue|anexo)\b/.test(text);
   const review = hasSolarMutation(text) && !(wantsDocument && !hasSolarMutation(text.replace(/\b(enviar|envie)\b/g, "")));
   if (!review && asksAverageConsumption(text)) return { module: "unidades", mode: "query", review: false };
