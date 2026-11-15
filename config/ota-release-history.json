@@ -1,5 +1,23 @@
 [
   {
+    "numero": "OTA 20261114-225152",
+    "data": "14/11/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Solar: separar consultas de documentos e simulacao ao mudar de assunto"
+    ]
+  },
+  {
+    "numero": "OTA 20261114-224635",
+    "data": "14/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Solar: separar memoria de calculo de simulacao e respeitar mudanca de assunto"
+    ]
+  },
+  {
     "numero": "OTA 20261114-223605",
     "data": "14/11/2026",
     "variant": "gerador",
