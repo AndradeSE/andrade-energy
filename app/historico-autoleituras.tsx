@@ -1,10 +1,12 @@
 import { useCallback, useState } from "react";
 import { useFocusEffect, useLocalSearchParams } from "expo-router";
-import { ScrollView, Text } from "react-native";
-import { AppHeader, Button, Card, Screen } from "../components/ui";
+import { Ionicons } from "@expo/vector-icons";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { AppHeader, Button, Card, Loading, Screen } from "../components/ui";
 import { useAuth } from "../contexts/AuthContext";
 import { listarMinhasAutoleituras } from "../services/clientes.service";
-import { Spacing } from "../theme";
+import { formatarDataBrasileira } from "../services/faturas.service";
+import { Colors, Spacing } from "../theme";
 
 type Leitura = Awaited<ReturnType<typeof listarMinhasAutoleituras>>[number];
 
@@ -36,25 +38,43 @@ export default function HistoricoAutoleituras() {
   }, [id, revisao]));
 
   const atual = resultado?.id === id ? resultado : undefined;
+  const vazio = !id || !atual?.leituras?.length;
   return (
     <Screen>
       <AppHeader variant="subpage" contextTitle="Unidade consumidora" contextSubtitle="Leituras do medidor" title="Histórico de leituras" subtitle={numero ? `UC ${numero}` : "Unidade consumidora"} />
       <ScrollView contentContainerStyle={{ padding: Spacing.lg, gap: Spacing.md }}>
-        {!id ? <Text>Selecione uma unidade consumidora.</Text>
-          : !atual ? <Text>Consultando leituras…</Text>
-          : !atual.leituras ? <>
-            <Text>Não foi possível consultar o histórico.</Text>
-            <Button title="Tentar novamente" onPress={() => setRevisao(valor => valor + 1)} />
-          </>
-          : !atual.leituras.length ? <Text>Nenhuma leitura registrada para esta UC.</Text>
-          : atual.leituras.map(leitura => (
+        {id && !atual ? <Loading /> : vazio ? (
+          <Card>
+            <View style={styles.empty}>
+              <Ionicons name="time-outline" size={32} color={Colors.primary} />
+              <Text style={styles.title}>{!id ? "Selecione uma unidade" : atual?.leituras ? "Nenhuma leitura registrada" : "Histórico indisponível"}</Text>
+              <Text style={styles.caption}>{!id ? "Escolha uma UC para consultar suas leituras." : atual?.leituras ? "As leituras enviadas por esta UC e seus protocolos aparecerão aqui." : "Não foi possível consultar as leituras desta UC."}</Text>
+              {id && !atual?.leituras ? <Button title="Tentar novamente" onPress={() => setRevisao(valor => valor + 1)} /> : null}
+            </View>
+          </Card>
+        ) : atual?.leituras?.map(leitura => (
             <Card key={leitura.id}>
-              <Text>{leitura.leitura_kwh} kWh · {leitura.data_programada.split("-").reverse().join("/")}</Text>
-              <Text>{estados[leitura.estado]}</Text>
-              {leitura.protocolo_cemig ? <Text selectable>Protocolo Cemig {leitura.protocolo_cemig}</Text> : null}
+              <View style={styles.record}>
+                <Text style={styles.title}>{leitura.leitura_kwh.toLocaleString("pt-BR")} kWh</Text>
+                <Text style={styles.caption}>Data programada · {formatarDataBrasileira(leitura.data_programada)}</Text>
+                <Text style={styles.state}>{estados[leitura.estado] ?? leitura.estado}</Text>
+                {leitura.protocolo_cemig ? <View style={styles.protocol}>
+                  <Text style={styles.caption}>Protocolo Cemig</Text>
+                  <Text selectable style={styles.state}>{leitura.protocolo_cemig}</Text>
+                </View> : null}
+              </View>
             </Card>
           ))}
       </ScrollView>
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  empty: { alignItems: "center", paddingVertical: Spacing.md, gap: Spacing.sm },
+  record: { gap: Spacing.sm },
+  title: { color: Colors.primaryDark, fontSize: 18, fontWeight: "800" },
+  caption: { color: Colors.subtitle, fontSize: 13 },
+  state: { color: Colors.primaryDark, fontSize: 14, fontWeight: "700" },
+  protocol: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.primaryLight, paddingTop: Spacing.sm, gap: 4 },
+});
