@@ -77,3 +77,9 @@ Quatro testes adicionais de automação cadastral passaram: revisão sem escrita
 Os oito testes de automação cadastral passaram, incluindo edição de cliente na usina autorizada, remoção de acesso entre revisão e confirmação, homônimos de usinas e apelido somente das UCs do próprio Consumidor. A execução completa confirmou **104 testes aprovados**: 64 de serviços, 36 de integração e quatro de runtime, sem falhas.
 
 A gravação reversível pela interface autenticada continua pendente: o S23 está conectado, porém bloqueado. Nenhum dado foi alterado para simular essa evidência. A última publicação de produção do Gerador permanece na revisão d1bc1bf4; esta rodada acrescentou testes, sem mudança de código de execução nem nova OTA.
+
+## Teste final de gravação reversível no S23
+
+Concluído no Gerador Preview autenticado: pedido de alteração do telefone do próprio perfil, revisão antes/depois, toque em Confirmar e salvar e confirmação de sucesso. Uma nova preparação de alteração consultou o valor temporário salvo, comprovando a persistência no servidor. O telefone original foi restaurado por nova revisão e confirmação; uma consulta independente de perfil retornou o telefone original. Nenhum cliente, contrato, cobrança ou permissão foi alterado.
+
+Com isso, a pendência de gravação reversível desta rodada está encerrada. A cobertura registrada inclui consultas dos 28 módulos, documentos e destinos descritos acima, confirmação/cancelamento cadastral e 104 testes automatizados aprovados. Não equivale à execução de transações financeiras, assinatura ou envio de protocolos reais, nem a todas as frases possíveis por voz. As correções de execução continuam na produção d1bc1bf4; esta conferência não exigiu nova OTA.
