@@ -1,5 +1,41 @@
 [
   {
+    "numero": "OTA 20261115-085102",
+    "data": "15/11/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Autoleitura e Solar: contexto da UC preservado; compatibilidade live"
+    ]
+  },
+  {
+    "numero": "OTA 20261115-084931",
+    "data": "15/11/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Autoleitura e Solar: contexto da UC preservado; compatibilidade arm32"
+    ]
+  },
+  {
+    "numero": "OTA 20261115-084759",
+    "data": "15/11/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Autoleitura e Solar: contexto da UC preservado; compatibilidade refresh"
+    ]
+  },
+  {
+    "numero": "OTA 20261115-084605",
+    "data": "15/11/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Autoleitura: historico preserva a UC aberta; conferencia autenticada no S23"
+    ]
+  },
+  {
     "numero": "OTA 20261115-083918",
     "data": "15/11/2026",
     "variant": "consumidor",
