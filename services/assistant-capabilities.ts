@@ -12,6 +12,7 @@ export function detectCapability(input: string): AssistantIntent | undefined {
   if (/\b(solar|assistente)\b/.test(text) && /\b(configuracoes|configurar|voz|flutuante|ativar|desativar|ligar|desligar)\b/.test(text)) return { module: "assistente-config", mode: "action", review: false };
   if (/\b(versao|revisao|atualizac(?:ao|oes)|novidades|ota|sobre o app)\b/.test(text) && !hasSolarMutation(text) && !/^(?:como|onde)\b/.test(text)) return { module: "sobre", mode: "query", review: false };
   if (isSolarHelp(text)) return undefined;
+  if (asksUnitUtility(text)) return { module: "unidades", mode: "query", review: false };
   const wantsDocument = /\b(pdf|arquivo|documento|baixar|baixa|baixe|download|mande|manda|envie|entregue|anexo)\b/.test(text);
   const review = hasSolarMutation(text) && !(wantsDocument && !hasSolarMutation(text.replace(/\b(enviar|envie)\b/g, "")));
   if (!review && asksAverageConsumption(text)) return { module: "unidades", mode: "query", review: false };
@@ -74,6 +75,13 @@ export function asksLatestConsumption(input: string) {
 
 export function asksAverageConsumption(input: string) {
   return /\b(?:consumo\s+medio|media\s+(?:mensal\s+)?(?:de\s+)?consumo)\b/.test(normalizeCapabilityText(input));
+}
+
+export function asksUnitUtility(input: string) {
+  const text = normalizeCapabilityText(input);
+  return !hasSolarMutation(text) && /\b(concessionaria|distribuidora)\b/.test(text) &&
+    !/\b(fatura|pdf|boleto|arquivo|documento|pagamento)\b/.test(text) &&
+    (/\b(qual|quem|informe|diga|saber|consulte|consultar|pertence|atende)\b/.test(text) || /^(?:e\s+)?(?:a\s+)?(?:concessionaria|distribuidora)\b/.test(text));
 }
 
 export function asksConsumptionInvoice(input: string) {

@@ -3,7 +3,7 @@ import { resumoContaConcessionaria, resumoUltimoConsumo, selecionarFaturasConsum
 import { contractUnitDigits, matchesContractUnit } from "./assistant-contract-unit";
 import api from "../config/api";
 import type { AssistantAction, AssistantDocument, AssistantIntent, AssistantToolReply } from "./assistant-capabilities";
-import { asksAverageConsumption, asksConsumptionInvoice, asksLatestConsumption, displayNumber, onlyArray, normalizeCapabilityText } from "./assistant-capabilities";
+import { asksUnitUtility, asksAverageConsumption, asksConsumptionInvoice, asksLatestConsumption, displayNumber, onlyArray, normalizeCapabilityText } from "./assistant-capabilities";
 import { averageConsumptionReply, selectAssistantClients, selectAssistantUnits } from "./assistant-unit-query";
 import { listServiceQuotas } from "./cotas-servicos.service";
 import { listarAutoleituras, listarMinhasAutoleituras } from "./clientes.service";
@@ -72,6 +72,16 @@ export async function executeAssistantTool(intent: AssistantIntent, ctx: Assista
   if (intent.module === "comercial" && ctx.role !== "ADMIN") return { text: "Esta consulta administrativa exige acesso de administrador. Não vou ampliar suas permissões." };
   if (intent.module === "cotas" && ctx.role !== "ADMIN") return { text: "A consulta de cotas exige acesso de administrador." };
   const pedido = normalizeCapabilityText(question);
+  if (!intent.review && asksUnitUtility(question)) {
+    if (ctx.generator && !ctx.plantId) return { text: "Selecione a usina para consultar a concessionária da UC." };
+    const units = onlyArray(await (ctx.generator ? listarUnidadesGestor(ctx.plantId) : listarMinhasUnidades()));
+    const selected = selectAssistantUnits(units, question, ctx);
+    if (!selected.length) return { text: "Não encontrei essa UC no acesso atual. Selecione a unidade ou informe seu número." };
+    if (selected.length > 1) return { text: "Encontrei mais de uma UC. Informe o número ou o final da unidade para consultar a concessionária correta." };
+    const unit = selected[0];
+    const utility = typeof unit.distribuidora === "string" ? unit.distribuidora.trim() : "";
+    return { text: utility ? `A concessionária da UC ${scalar(unit.numero)} é ${utility}.\nFonte: cadastro da unidade.` : `A concessionária da UC ${scalar(unit.numero)} não está informada no cadastro.`, actions: [] };
+  }
   if (!intent.review && asksAverageConsumption(question)) {
     if (ctx.generator && !ctx.plantId) return { text: "Selecione uma usina para consultar o consumo médio cadastrado." };
     const units = onlyArray(await (ctx.generator ? listarUnidadesGestor(ctx.plantId) : listarMinhasUnidades()));
@@ -149,7 +159,7 @@ export async function executeAssistantTool(intent: AssistantIntent, ctx: Assista
       const selected = selectAssistantUnits(rows, question, ctx);
       const specific = contractUnitDigits(pedido) || /\b(cliente|consumidor)\s+\S/.test(pedido);
       const result = specific || ctx.unitId ? selected : rows;
-      return { text: listText(result, "UCs", row => `UC ${scalar(row.numero)} · cliente ${scalar(row.clientes?.nome)} · ${scalar(row.status)} · desconto ${displayNumber(row.desconto_percentual)}% · consumo médio ${displayNumber(row.consumo_medio_kwh)} kWh`), actions };
+      return { text: listText(result, "UCs", row => `UC ${scalar(row.numero)} · cliente ${scalar(row.clientes?.nome)} · concessionária ${scalar(row.distribuidora)} · ${scalar(row.status)} · desconto ${displayNumber(row.desconto_percentual)}% · consumo médio ${displayNumber(row.consumo_medio_kwh)} kWh`), actions };
     }
     case "usinas": {
       if (/\businas\b/.test(pedido) && !/\b(atual|selecionada)\b/.test(pedido)) {

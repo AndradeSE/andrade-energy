@@ -246,3 +246,24 @@ test('Cliente consulta privacidade sem emitir solicitação ou apagar dados', as
   assert.match(reply.text,/ACESSO/);
   assert.equal(f.calls.some(([name])=>name==='post'),false);
 });
+
+for (const generator of [false, true]) test(`concessionaria da UC usa cadastro autenticado (gerador=${generator})`, async () => {
+ const f=fixture(); f.unit.distribuidora='ENERGISA';
+ const reply=await f.queryLiveAccount('De qual concessionaria e a UC?',{...f.ctx,generator});
+ assert.match(reply.text,/UC 854652001898.*ENERGISA/);
+ assert.doesNotMatch(reply.text,/CEMIG/);
+ assert.equal(f.calls.some(([name])=>name==='listarFaturas'),false);
+ assert.equal(f.calls.some(([name])=>name===(generator?'listarUnidadesGestor':'listarMinhasUnidades')),true);
+});
+test('concessionaria ausente nao presume Cemig e UC explicita alheia nao usa contexto',async()=>{
+ const f=fixture();
+ assert.match((await f.queryLiveAccount('Qual a distribuidora da minha UC?',{...f.ctx,generator:false})).text,/não está informada/);
+ assert.match((await f.queryLiveAccount('Qual concessionaria da UC 999999999999?',f.ctx)).text,/Não encontrei/);
+ assert.equal(f.detectCapability('abra a fatura da concessionaria da UC final 1898').module,'conta-luz');
+ assert.equal(f.detectCapability('altere a distribuidora da UC').review,true);
+});
+test('acompanhamento da concessionaria preserva a UC anteriormente consultada',()=>{
+ const f=fixture();
+ assert.equal(f.inheritAssistantUnitTarget('e a concessionaria?','consumo da UC final 1898'),'e a concessionaria da UC 1898');
+});
+

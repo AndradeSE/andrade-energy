@@ -57,7 +57,7 @@ export function inheritAssistantUnitTarget(question: string, previous?: string) 
   const text = normalizeSolarRequest(question);
   if (!previous || contractUnitDigits(text) || /\b(?:cliente|consumidor(?:a)?)\s+\S/.test(text)) return question;
   const followUp = text.replace(/\s+(?:dessa|desta|da mesma)\s+(?:uc|unidade(?: consumidora)?)(?=[?!. ]*$)/, "");
-  if (!/^(?:e\s+)?(?:(?:qual|quanto)\s+(?:e\s+|foi\s+)?(?:o\s+)?)?(?:o\s+)?(?:consumo(?:\s+medio)?|media (?:mensal )?(?:de )?consumo|e-?mail|telefone|celular|whatsapp|endereco|(?:no )?mes anterior)[?!. ]*$/.test(followUp)) return question;
+  if (!/^(?:e\s+)?(?:(?:qual|quanto)\s+(?:e\s+|foi\s+)?(?:[oa]\s+)?)?(?:[oa]\s+)?(?:concessionaria|distribuidora|consumo(?:\s+medio)?|media (?:mensal )?(?:de )?consumo|e-?mail|telefone|celular|whatsapp|endereco|(?:no )?mes anterior)[?!. ]*$/.test(followUp)) return question;
   const normalizedPrevious = normalizeSolarRequest(previous);
   const digits = contractUnitDigits(normalizedPrevious);
   if (digits) return `${question.replace(/\s+(?:dessa|desta|da mesma)\s+(?:uc|unidade(?: consumidora)?)[?!. ]*$/i, "").replace(/[?!.]+$/, "")} da UC ${digits}`;
