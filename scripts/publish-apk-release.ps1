@@ -40,7 +40,18 @@ try {
     throw
   }
   $published | Select-Object name,size,digest,browser_download_url,updated_at | ConvertTo-Json
-  & "$PSScriptRoot/publish-native-apk-notice.ps1" -ApkPath $apk.FullName
+  # Check the public download itself before announcing it to installed apps.
+  $downloadCheck = Join-Path ([IO.Path]::GetTempPath()) ("andrade-release-check-" + [guid]::NewGuid().ToString() + '.apk')
+  try {
+    $response = Invoke-WebRequest -Uri $published.browser_download_url -OutFile $downloadCheck -PassThru
+    if ($response.StatusCode -ne 200 -or (Get-Item -LiteralPath $downloadCheck).Length -ne $apk.Length -or
+        (Get-FileHash -LiteralPath $downloadCheck -Algorithm SHA256).Hash.ToLowerInvariant() -ne $hash) {
+      throw 'Download publico nao corresponde ao APK validado. Aviso nao publicado.'
+    }
+    & "$PSScriptRoot/publish-native-apk-notice.ps1" -ApkPath $apk.FullName
+  } finally {
+    Remove-Item -LiteralPath $downloadCheck -ErrorAction SilentlyContinue
+  }
   # Keep the old installer only until both the new asset and its notice are valid.
   if ($old) {
     Invoke-RestMethod "$api/releases/assets/$($old.id)" -Method Delete -Headers $headers | Out-Null
