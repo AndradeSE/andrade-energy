@@ -173,6 +173,8 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
   const contextGeneration = useRef(0);
   const contratoEmLeitura = useRef<string | undefined>(undefined);
   const [pdfContrato, setPdfContrato] = useState<{ uri: string }>();
+  const [loadedPdf, setLoadedPdf] = useState<{ source: string; path: string }>();
+  const [sharingPdf, setSharingPdf] = useState(false);
   const ultimoContrato = useRef<{ nome: string; geracao: number } | undefined>(undefined);
   const [historyScope, setHistoryScope] = useState<string>();
   useEffect(() => {
@@ -278,6 +280,11 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
   }), []);
 
   useEffect(() => { onVoiceState?.(voiceActive.current); }, [listening, speakingReply, voiceStatus, onVoiceState]);
+  useEffect(() => {
+    if (!isPreviewEnvironment || !authenticated || !voiceWake || handledWake.current === voiceWake) return;
+    handledWake.current = voiceWake;
+    if (!voiceActive.current && !busyRef.current) void toggleVoice(true);
+  }, [voiceWake, authenticated]);
   if (!isPreviewEnvironment || !authenticated) return <Redirect href="/" />;
 
   async function openInvoicePdf(id: string) {
@@ -875,12 +882,6 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
     void speakSafeOnlineOrLocal("welcome", greeting, finishGreeting, reason => { setVoiceStatus(reason); setVoiceNotice(reason); });
   }
 
-  useEffect(() => {
-    if (!voiceWake || handledWake.current === voiceWake) return;
-    handledWake.current = voiceWake;
-    if (!voiceActive.current && !busyRef.current) void toggleVoice(true);
-  }, [voiceWake]);
-
   async function endDictation() {
     micHeld.current = false;
     if (dictationStarting.current || !dictationActive.current) return;
@@ -1046,8 +1047,6 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
     return "O contrato foi encaminhado ao leitor interno.";
   }
   function leaveConversation(){ if(keyboardVisible){ Keyboard.dismiss(); return; } if(voiceActive.current && onMinimize) onMinimize(); else if(onClose) onClose(); else router.back(); }
-  const [loadedPdf, setLoadedPdf] = useState<{ source: string; path: string }>();
-  const [sharingPdf, setSharingPdf] = useState(false);
   const shareablePdf = pdfContrato && loadedPdf?.source === pdfContrato.uri ? loadedPdf : undefined;
 
   async function shareOpenPdf() {
