@@ -1,5 +1,14 @@
 [
   {
+    "numero": "OTA 20261115-095515",
+    "data": "15/11/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Solar: contrato direto da UC; lote em homologacao sem promocao de producao"
+    ]
+  },
+  {
     "numero": "OTA 20261115-095146",
     "data": "15/11/2026",
     "variant": "gerador",

@@ -7,6 +7,7 @@ import { AccessibilityInfo, Alert, Animated, AppState, Easing, ImageBackground, 
 import { Pressable } from "../assistant/AssistantNativeControls";
 import { buscarClimaUsina, type ClimaUsina } from "../../services/usina-clima.service";
 import { useAuth } from "../../contexts/AuthContext";
+import api from "../../config/api";
 
 const weatherBackgrounds = {
   sol: require("../../assets/images/weather/solar-sunny.png"),
@@ -74,7 +75,14 @@ export function PlantRain({ animate }: { animate: boolean }) {
   </View>;
 }
 
-export default function PlantWeatherCover({ usinaId, source, photoUri, children }: { usinaId: string; source: ImageSourcePropType; photoUri?: string | null; children: ReactNode }) {
+export default function PlantWeatherCover({ usinaId, unidadeId, source, photoUri, children }: { usinaId?: string; unidadeId?: string; source: ImageSourcePropType; photoUri?: string | null; children: ReactNode }) {
+  const entityId = unidadeId || usinaId;
+  const entityLabel = unidadeId ? "unidade" : "usina";
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(timer);
+  }, []);
   const focused = useIsFocused();
   const { usuario } = useAuth();
   const [active, setActive] = useState(AppState.currentState === "active");
@@ -88,14 +96,14 @@ export default function PlantWeatherCover({ usinaId, source, photoUri, children 
     return () => { mounted = false; state.remove(); motion.remove(); };
   }, []);
   const query = useQuery<ClimaUsina>({
-    queryKey: ["clima-usina", usuario?.empresa_id, usuario?.id, usinaId],
-    queryFn: () => buscarClimaUsina(usinaId),
-    enabled: focused && active && Boolean(usuario?.id && usinaId),
+    queryKey: [unidadeId ? "clima-unidade" : "clima-usina", usuario?.empresa_id, usuario?.id, entityId],
+    queryFn: async () => unidadeId ? (await api.get<ClimaUsina>(`/clientes/unidade/${encodeURIComponent(unidadeId)}/clima`, { timeout: 15_000 })).data : buscarClimaUsina(usinaId!),
+    enabled: focused && active && Boolean(usuario?.id && entityId),
     staleTime: 10 * 60_000, refetchInterval: focused && active ? 15 * 60_000 : false,
     refetchIntervalInBackground: false, retry: false,
   });
   const climate = query.data;
-  const fresh = climate?.disponivel === true && typeof climate.temperatura === "number" && ["sol", "nublado", "chuva", "noite"].includes(climate.tipo ?? "") && Boolean(climate.referencia) && Math.abs(Date.now() - Date.parse(climate.referencia!)) < 70 * 60_000;
+  const fresh = climate?.disponivel === true && Number.isFinite(climate.temperatura) && ["sol", "nublado", "chuva", "noite"].includes(climate.tipo ?? "") && Boolean(climate.referencia) && Math.abs(now - Date.parse(climate.referencia!)) < 70 * 60_000;
   useEffect(() => {
     if (!focused || !active || reduced || !fresh) { phase.stopAnimation(); phase.setValue(0); return; }
     const loop = Animated.loop(Animated.timing(phase, { toValue: 1, duration: 6500, easing: Easing.linear, useNativeDriver: true }));
@@ -113,7 +121,7 @@ export default function PlantWeatherCover({ usinaId, source, photoUri, children 
     try { time = new Date(climate.consultadoEm).toLocaleTimeString("pt-BR", { timeZone: climate.fuso || "UTC", hour: "2-digit", minute: "2-digit" }); } catch { time = ""; }
   }
   function details() {
-    Alert.alert("Clima na região da usina", `${climate?.regiao ?? "Região não identificada"}\nEstimativa meteorológica regional pelo município/UF cadastrado, não medição no local.\n${climate?.referencia ? `Referência: ${new Date(climate.referencia).toLocaleString("pt-BR", { timeZone: climate.fuso || "UTC" })}` : climate?.motivo ?? "Confira o município e a UF no endereço da usina."}\nFonte: MET Norway · CC BY 4.0. Base municipal: Municípios Brasileiros (kelvins, MIT).`, [
+    Alert.alert(`Clima na região da ${entityLabel}`, `${climate?.regiao ?? "Região não identificada"}\nEstimativa meteorológica regional pelo município/UF cadastrado, não medição no local.\n${climate?.referencia ? `Referência: ${new Date(climate.referencia).toLocaleString("pt-BR", { timeZone: climate.fuso || "UTC" })}` : climate?.motivo ?? `Confira o município e a UF no endereço da ${entityLabel}.`}\nFonte: MET Norway · CC BY 4.0. Base municipal: Municípios Brasileiros (kelvins, MIT).`, [
       { text: "Fechar", style: "cancel" },
       { text: "Fonte e licença", onPress: () => { void Linking.openURL("https://api.met.no/doc/License").catch(() => undefined); } },
     ]);
@@ -127,7 +135,7 @@ export default function PlantWeatherCover({ usinaId, source, photoUri, children 
     <LinearGradient colors={["rgba(2,25,18,.08)", "rgba(2,25,18,.88)"]} style={styles.shade}>
       <Pressable accessibilityRole="button" accessibilityLabel={fresh ? `${climate?.descricao}, ${climate?.temperatura} graus em ${climate?.regiao}. Ver detalhes do clima.` : "Clima indisponível. Ver detalhes."} onPress={event => { event.stopPropagation(); details(); }} style={styles.weather}>
         <Animated.View style={{ transform: [{ rotate: fresh && !night && !cloudy && !rain ? phase.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "360deg"] }) : "0deg" }, { translateX: cloudy ? phase.interpolate({ inputRange: [0, .5, 1], outputRange: [-4, 4, -4] }) : 0 }] }}><Ionicons name={fresh ? icon : "cloud-outline"} size={24} color={fresh && !night && !cloudy && !rain ? "#FFD34F" : "#EAF7FF"} /></Animated.View>
-        <View style={styles.copy}><Text style={styles.condition}>{fresh ? `${climate?.descricao} · ${climate?.temperatura}°C` : query.isPending && !query.error ? "Consultando clima…" : "Clima indisponível"}</Text><Text numberOfLines={1} style={styles.location}>{fresh ? `${climate?.regiao}${time ? ` · ${time}${climate?.fuso === "UTC" ? " UTC" : ""}` : ""}` : "Pelo endereço cadastrado da usina"}</Text></View>
+        <View style={styles.copy}><Text style={styles.condition}>{fresh ? `${climate?.descricao} · ${climate?.temperatura}°C` : query.isPending && !query.error ? "Consultando clima…" : "Clima indisponível"}</Text><Text numberOfLines={1} style={styles.location}>{fresh ? `${climate?.regiao}${time ? ` · ${time}${climate?.fuso === "UTC" ? " UTC" : ""}` : ""}` : `Pelo endereço cadastrado da ${entityLabel}`}</Text></View>
         <Ionicons name="information-circle-outline" size={15} color="#D8EBE5" />
       </Pressable>
       {parts}

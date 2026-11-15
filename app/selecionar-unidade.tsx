@@ -1,4 +1,3 @@
-import UnitRainOverlay from "../components/cliente/UnitRainOverlay";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as DocumentPicker from "expo-document-picker";
@@ -9,7 +8,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useRef, useState } from "react";
 import { loadSelectionList, selectionListKey } from "../services/selection-list";
 
-import { Alert, BackHandler, Image, ImageBackground, Linking, Modal, RefreshControl, StatusBar, StyleSheet, Text, View } from "react-native";
+import { Alert, BackHandler, Image, Linking, Modal, RefreshControl, StatusBar, StyleSheet, Text, View } from "react-native";
 import { Pressable, TextInput, TouchableOpacity } from "../components/assistant/AssistantNativeControls";
 
 import {
@@ -688,9 +687,8 @@ export default function SelecionarUnidade() {
                   styles.unitCard
                 }
               >
-                <ImageBackground source={unidade?.foto_card_local ? { uri: unidade.foto_card_local } : require("../assets/images/login-solar-header.png")} imageStyle={styles.unitCoverImage} style={styles.unitCover}>
-                  <UnitRainOverlay unidadeId={unidade!.id} />
-                  <LinearGradient colors={["rgba(3,30,22,.12)", "rgba(3,30,22,.88)"]} style={styles.unitCoverShade}>
+                <PlantWeatherCover unidadeId={unidade!.id} photoUri={unidade?.foto_card_local} source={require("../assets/images/login-solar-header.png")}>
+                  <View style={styles.unitCoverContent}>
                     <View style={styles.unitCoverTop}>
                       <View style={styles.unitLiveBadge}><View style={styles.unitLiveDot} /><Text style={styles.unitLiveText}>{unidadeInativa ? "INATIVA" : contratoLiberado ? "ATIVA" : "AGUARDANDO CONTRATO"}</Text></View>
                       <TouchableOpacity accessibilityLabel={`Personalizar fundo da UC ${unidade!.numero}`} hitSlop={8} onPress={(event) => { event.stopPropagation(); void personalizarFundo(unidade!); }} style={styles.unitPhotoButton}><Ionicons name="image-outline" size={18} color="#FFF" /></TouchableOpacity>
@@ -704,8 +702,8 @@ export default function SelecionarUnidade() {
                       <View style={styles.unitCoverDivider} />
                       <View style={styles.unitCoverMetric}><Text style={styles.unitCoverMetricLabel}>DESCONTO</Text><Text style={styles.unitCoverMetricValue}>{Number(unidade!.desconto_percentual ?? 0).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%</Text></View>
                     </View>
-                  </LinearGradient>
-                </ImageBackground>
+                  </View>
+                </PlantWeatherCover>
                 <View style={styles.unitBody}>
                 <View
                   style={
@@ -1427,6 +1425,7 @@ const styles =
     unitCover: { height: 196, justifyContent: "flex-end" },
     unitCoverImage: { borderTopLeftRadius: Radius.xl, borderTopRightRadius: Radius.xl },
     unitCoverShade: { flex: 1, justifyContent: "space-between", padding: Spacing.md },
+    unitCoverContent: { minHeight: 164, justifyContent: "space-between", gap: 14 },
     unitCoverTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
     unitLiveBadge: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 9, paddingVertical: 5, borderRadius: Radius.round, backgroundColor: "rgba(2,32,23,.62)" },
     unitLiveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: "#38E184" },
