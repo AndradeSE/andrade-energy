@@ -17,7 +17,7 @@ Três defeitos foram reproduzidos e corrigidos: o pedido de PDF sem UC explícit
 
 Validação automatizada: 34 cenários de integração, 56 testes de serviços do assistente e quatro testes de runtime aprovados. Isso não substitui reconhecimento de voz real, interação com a interface nem respostas de serviços de produção.
 
-Conferência no S23 em 14/11/2026, Gerador Preview revisão `e61318f4`: nome Solar exibido; pedido digitado “Abra a fatura da Cemig da UC final 1898” abriu o PDF no leitor interno; após fechar o documento, sair e reabrir a conversa, “Qual foi o consumo dessa UC?” retornou `UC 854652001898 · OUT/2026 · 5.880 kWh`. Essa conferência usa serviços autenticados de homologação. A ativação pela palavra Solar e o ciclo completo por voz ainda aguardam a fala real do usuário; não registrar essa etapa como concluída pelo teste digitado.
+Conferência no S23 em 14/11/2026, Gerador Preview revisão `e61318f4`: nome Solar exibido; pedido digitado “Abra a fatura da Cemig da UC final 1898” abriu o PDF no leitor interno; após fechar o documento, sair e reabrir a conversa, “Qual foi o consumo dessa UC?” retornou `UC 854652001898 · OUT/2026 · 5.880 kWh`. Essa conferência usa serviços autenticados de homologação. O usuário confirmou depois o teste real: chamada Solar, abertura do PDF por voz, término por silêncio e retomada do consumo da mesma UC ao reabrir a voz. O tempo de tela foi restaurado e conferido em 30 segundos. Essa evidência valida esse cenário no S23; os demais módulos têm a cobertura automatizada descrita acima.
 
 | Fluxo | App | Portal |
 | --- | --- | --- |
