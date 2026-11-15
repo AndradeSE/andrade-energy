@@ -1,5 +1,23 @@
 [
   {
+    "numero": "OTA 20261115-101035",
+    "data": "15/11/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Clima da UC no padrao Gerador e contrato direto pela Solar; lote conferido no Preview [refresh]"
+    ]
+  },
+  {
+    "numero": "OTA 20261115-100858",
+    "data": "15/11/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Clima da UC no padrao Gerador e contrato direto pela Solar; lote conferido no Preview [camera]"
+    ]
+  },
+  {
     "numero": "OTA 20261115-095829",
     "data": "15/11/2026",
     "variant": "consumidor",
