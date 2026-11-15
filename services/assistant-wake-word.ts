@@ -28,9 +28,9 @@ export function setWakeWordEnabled(value: boolean, allowOnline = false, persiste
   listeners.forEach(listener => listener());
 }
 export function containsAssistantWakeWord(text: string) {
-  // Palavra isolada: citar o nome numa frase não pode abrir a conversa.
+  // Chamada completa: citar o nome numa frase não pode abrir a conversa.
   const normalized = text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
     .replace(/[^a-z0-9\s]/g, " ").trim().replace(/\s+/g, " ");
   // Variações restritas da mesma chamada, nunca busca parcial em frases.
-  return /^(solar|soular|so lar)$/.test(normalized);
+  return /^e\s?ai (solar|soular|so lar)$/.test(normalized);
 }
