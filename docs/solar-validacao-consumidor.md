@@ -4,16 +4,16 @@ A validação do Gerador não substitui a do Consumidor. Esta matriz separa test
 
 | Jornada | Aceitação | Evidência atual |
 | --- | --- | --- |
-| Perfil | Consultar pelo ambiente CONSUMIDOR; edição com revisão e confirmação | Consulta automatizada; edição de perfil conferida no Gerador, falta repetir no Cliente |
+| Perfil | Consultar pelo ambiente CONSUMIDOR; edição com revisão e confirmação | Consulta e edicao/restauracao conferidas no Consumidor Preview do S23. Nome temporario salvo e nome original confirmado apos sair e entrar novamente. |
 | UC | Listar apenas próprias, trocar pelo fluxo do app e atualizar contexto | Troca real Casa → UC 453314201850 conferida no Cliente; elegibilidade rural e contexto da Solar acompanharam a troca |
 | Consumo | Distinguir média cadastrada de consumo da última competência | Integração automatizada; no S23, Solar retornou média cadastrada de 416 kWh e informou ausência de última fatura sem reutilizar essa média |
 | Economia | Consultar dashboard da UC própria selecionada; não assumir zero sem dados | Integração automatizada de alvo e ausência de UC autorizada |
-| Contrato | PDF da UC selecionada, compartilhamento e retorno preservados | PDF/proposta de Casa aberto no aparelho; resolução automatizada; compartilhamento e retomada por voz pendentes |
+| Contrato | PDF da UC selecionada, compartilhamento e retorno preservados | PDF e proposta de Casa abertos no S23. Compartilhamento exibido e cancelado. Usuario confirmou abertura por voz e retomada do consumo da mesma UC apos retorno. |
 | Faturas | Documento Andrade e Cemig conforme cobrança unificada; não exibir campos de pagamento no demonstrativo | Conferência específica da política de documentos pendente nesta rodada do Cliente |
 | Autoleitura | UC elegível; câmera, galeria e PDF; extração, ilegibilidade, envio e histórico | Câmera integrada/flash e foto ilegível conferidos, sem leitura inventada ou envio; histórico com UC preservada validado em homologação e produção. Extração positiva e envio ainda pendentes |
-| Privacidade | Consultar somente os próprios pedidos; não emitir ou excluir por uma consulta | Integração automatizada sem escrita |
-| Voz e memória | Chamar Solar, abrir PDF, voltar, encerrar, reabrir e retomar a mesma UC | Confirmado no Gerador; repetir no Cliente e após trocar UC |
-| Configurações e versão | Preferências e notas do Consumidor, respeitando autorizações | Cobertura compartilhada; conferência própria no Cliente pendente |
+| Privacidade | Consultar somente os próprios pedidos; não emitir ou excluir por uma consulta | Consulta real no S23 retornou zero pedidos da propria conta, sem escrita |
+| Voz e memória | Chamar Solar, abrir PDF, voltar, encerrar, reabrir e retomar a mesma UC | Confirmado pelo usuario no Consumidor para contrato e consumo da UC atual; troca de UC e consulta correspondente conferidas por texto. |
+| Configurações e versão | Preferências e notas do Consumidor, respeitando autorizações | Notas e revisao do Consumidor conferidas no S23 pela Solar. |
 | Permissões | Sem clientes de terceiros, Comercial, carteiras, rateio ou administração | Bloqueio de módulos administrativos testado |
 | Login e isolamento | Sair/entrar, não reutilizar memória de outra conta e não acessar UC alheia | Isolamento de histórico compartilhado testado; sequência autenticada do Cliente pendente |
 
@@ -94,3 +94,5 @@ O usuario esclareceu o resultado do teste por voz: Solar abriu o contrato no pri
 Lote publicado em producao: camera 01a1df54-b3c3-7d98-b1c7-5cc2b6387ccb; refresh 01a1df58-411b-7338-a936-e02175100915; arm32 01a1df59-ace0-7127-9038-e4b3a3ca9b4f; live 01a1df5b-0f8a-7d1a-8dfb-634312eacbd9; gerador 01a1df5c-6e18-7f4d-86fc-d376d7bb490b. Os cinco endpoints u.expo.dev retornaram HTTP 200 e corresponderam ao ID do respectivo projeto/canal/runtime. Nao houve mudanca de APK, assinatura, versionCode nem manifesto de aviso nativo. Atualizacao OTA, com pacote para cada runtime preservado. Tempo de tela do S23 restaurado e confirmado em 30000 ms.
 
 Esta conclusao refere-se ao lote clima/contrato e ao teste de voz confirmado pelo usuario. A matriz geral nao deve ser anunciada como integralmente encerrada: envio positivo de autoleitura em janela valida, edicao/restauracao de perfil no Consumidor e isolamento por troca autenticada de contas continuam sem conferencia real nesta rodada. Nao houve envio de leitura ficticia.
+
+Conferencia autenticada adicional do perfil no Consumidor Preview oficial em 15/11: sobrenome Duart Test recebeu sufixo temporario QA, salvamento confirmou Dados atualizados. Retorno ao Perfil exibiu o valor salvo. Removido o sufixo, salvo novamente e confirmado Duart Test. Depois da saida, Voltar encerrou a Activity; reabrir mostrou login. O usuario entrou novamente e a lista exibiu Vinicius Duart Test, confirmando restauracao persistida. A conta de retorno e a mesma; isolamento entre duas contas ainda depende de um segundo acesso de homologacao. Tempo de tela ampliado temporariamente para 600000 ms durante essa conferencia, a restaurar ao concluir.
