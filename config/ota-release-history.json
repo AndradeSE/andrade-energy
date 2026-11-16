@@ -1,5 +1,14 @@
 [
   {
+    "numero": "OTA 20261116-084956",
+    "data": "16/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "UC com interruptor individual; Rateio com botao geral e aviso de UCs desativadas com lista"
+    ]
+  },
+  {
     "numero": "OTA 20261116-075906",
     "data": "16/11/2026",
     "variant": "gerador",
