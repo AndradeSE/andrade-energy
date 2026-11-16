@@ -151,3 +151,8 @@ Fechamento deste ajuste em 16/11: apos nova observacao do usuario, a posicao foi
 - Preview OTA 01a1e527-798f-71e1-b42f-71fcded3c678, runtime 1.0.12-preview-pdf-voice; endpoint HTTP 200 confirmado.
 - Produção OTA 01a1e529-85cf-79d8-a58d-93bc35051ea4, runtime 1.0.15-production-gerador-share; endpoint HTTP 200 e UUID confirmados. APK não alterado.
 - Preferências não gravadas pela versão anterior não podem ser recuperadas do cache; pode ser necessário ativar uma vez após atualizar. Fechamento normal preserva a preferência. Logout e interrupção forçada pelo Android são casos distintos.
+
+## 16/11/2026 — Separador do rateio
+- Fonte 69b41ffb: removida a borda superior do contêiner de Enviar à Cemig, mantendo a única borda do cabeçalho SecaoRateio. Removido também padding redundante entre as linhas.
+- TypeScript passou. Inspeção de código confirmou duas bordas aninhadas antes e uma depois. Sem conferência física nesta rodada, S23 desconectado.
+- Preview 01a1e52f-2700-72d9-bd22-8e0517e90b82 e produção 01a1e531-23be-7bbe-9bd2-b410f6fd37c2 publicados e UUID conferido no endpoint Expo. Runtimes preservados, sem APK novo.

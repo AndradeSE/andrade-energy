@@ -1,5 +1,23 @@
 [
   {
+    "numero": "OTA 20261116-132734",
+    "data": "16/11/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Corrige linha divisoria duplicada na tela de rateio"
+    ]
+  },
+  {
+    "numero": "OTA 20261116-132516",
+    "data": "16/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Remove separador duplicado entre planilha e envio a Cemig"
+    ]
+  },
+  {
     "numero": "OTA 20261116-131915",
     "data": "16/11/2026",
     "variant": "gerador",
