@@ -40,14 +40,16 @@ export default function AtividadeEquipe() {
   }, []);
   useEffect(() => { void carregar(); }, [carregar]);
 
+  if (carregando && !inicializado) return <Screen edges={["top", "left", "right"]}><Loading /></Screen>;
+
   return <Screen edges={["top", "left", "right"]}>
     <AppHeader variant="subpage" title="Atividade da equipe" subtitle="Histórico individual" contextTitle="Auditoria de colaboradores" contextSubtitle="Quem fez, onde e quando" icon="time-outline" />
-    {carregando && !inicializado ? <Loading /> : <ScrollView contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={carregando && inicializado} onRefresh={() => { setCarregando(true); void carregar(); }} colors={[Colors.primary]} />}>
+    <ScrollView contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={carregando && inicializado} onRefresh={() => { setCarregando(true); void carregar(); }} colors={[Colors.primary]} />}>
       <TouchableOpacity onPress={() => router.back()} style={styles.back}><Ionicons name="arrow-back" size={20} color={Colors.primary}/><Text style={styles.backText}>Voltar</Text></TouchableOpacity>
       <Text style={styles.title}>Ações registradas</Text>
       <Text style={styles.subtitle}>Cada operação feita por um colaborador fica vinculada ao login utilizado. O histórico não exibe senhas nem dados preenchidos nos formulários.</Text>
       {itens.length ? itens.map((item) => <AuditCard key={item.id} item={item}/>) : <Card><Text style={styles.empty}>Nenhuma ação de colaborador registrada ainda.</Text></Card>}
-    </ScrollView>}
+    </ScrollView>
   </Screen>;
 }
 

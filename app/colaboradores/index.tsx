@@ -44,9 +44,11 @@ export default function Colaboradores({ modoAbaGerador = false, modoConvite = fa
 
   if (convidado) return <Redirect href={user?.papel_empresa === "COLABORADOR_COMERCIAL" ? "/admin/comercial" : "/"} />;
 
+  if (carregando && !modoConvite) return <Screen edges={["top", "left", "right"]}><Loading /></Screen>;
+
   return <Screen edges={["top", "left", "right"]}>
     <AppHeader variant={modoAbaGerador ? "main" : "subpage"} title={modoConvite ? "Convidar colaborador" : "Colaboradores"} subtitle="Equipe e permissões" contextTitle="Gestão de acessos" contextSubtitle="Convites e acessos operacionais" icon="people-outline" />
-    {carregando && !modoConvite ? <Loading /> : <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       {!modoAbaGerador ? <TouchableOpacity onPress={() => router.back()} style={styles.back}><Ionicons name="arrow-back" size={20} color={Colors.primary}/><Text style={styles.backText}>Voltar</Text></TouchableOpacity> : null}
       {modoConvite ? <>
       <Text style={styles.title}>{comercial ? "Convidar para a equipe comercial" : "Convidar para a equipe do gerador"}</Text>
@@ -73,7 +75,7 @@ export default function Colaboradores({ modoAbaGerador = false, modoConvite = fa
       </TouchableOpacity>
       {lista.length ? lista.map((item: any) => <Member key={`${item.pendente}-${item.id}`} item={item} onChange={carregar} promocoes={dados.promocoesPermitidas ?? []}/>) : <Card><Text style={styles.empty}>Nenhum colaborador ou convite cadastrado.</Text></Card>}
       </>}
-    </ScrollView>}
+    </ScrollView>
   </Screen>;
 }
 

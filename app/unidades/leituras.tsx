@@ -89,6 +89,8 @@ export default function LeiturasDaUc() {
       setConfigurando(false);
     }
   }
+  if (carregando) return <Screen><Loading /></Screen>;
+
   return <Screen>
     <AppHeader variant="subpage" title="Leitura do medidor" subtitle={`UC ${numero ?? ""}`} contextTitle="Unidade consumidora" contextSubtitle="Envio e histórico" />
     <ScrollView contentContainerStyle={styles.content}>
@@ -107,7 +109,7 @@ export default function LeiturasDaUc() {
         </> : null}
       </View>
       <Text style={styles.title}>Histórico de envio</Text>
-      {carregando ? <Loading /> : erro ? <><Text>Não foi possível consultar o histórico.</Text><Button title="Tentar novamente" onPress={carregar} /></> : !leituras.length ? <Text>Nenhuma leitura recebida para esta UC.</Text> : leituras.map(item => <Card key={item.id}>
+      {erro ? <><Text>Não foi possível consultar o histórico.</Text><Button title="Tentar novamente" onPress={carregar} /></> : !leituras.length ? <Text>Nenhuma leitura recebida para esta UC.</Text> : leituras.map(item => <Card key={item.id}>
         <Text style={styles.title}>{item.leitura_kwh} kWh</Text>
         <Text>{item.data_programada.split("-").reverse().join("/")} · {estados[item.estado] ?? item.estado}</Text>
         {item.protocolo_cemig ? <Text>Protocolo {item.protocolo_cemig}</Text> : null}

@@ -39,11 +39,12 @@ export default function HistoricoAutoleituras() {
 
   const atual = resultado?.id === id ? resultado : undefined;
   const vazio = !id || !atual?.leituras?.length;
+  if (id && !atual) return <Screen><Loading /></Screen>;
   return (
     <Screen>
       <AppHeader variant="subpage" contextTitle="Unidade consumidora" contextSubtitle="Leituras do medidor" title="Histórico de leituras" subtitle={numero ? `UC ${numero}` : "Unidade consumidora"} />
-      <ScrollView contentContainerStyle={[styles.content, id && !atual ? styles.loadingContent : undefined]}>
-        {id && !atual ? <Loading /> : vazio ? (
+      <ScrollView contentContainerStyle={styles.content}>
+        {vazio ? (
           <Card>
             <View style={styles.empty}>
               <Ionicons name="time-outline" size={32} color={Colors.primary} />
@@ -72,7 +73,6 @@ export default function HistoricoAutoleituras() {
 
 const styles = StyleSheet.create({
   content: { padding: Spacing.lg, gap: Spacing.md },
-  loadingContent: { flexGrow: 1 },
   empty: { alignItems: "center", paddingVertical: Spacing.md, gap: Spacing.sm },
   record: { gap: Spacing.sm },
   title: { color: Colors.primaryDark, fontSize: 18, fontWeight: "800" },
