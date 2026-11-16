@@ -70,13 +70,13 @@ export default function AutomaticReadingControl({ usinaId }: { usinaId: string }
       }
       if (ativar) {
         Alert.alert(
-          "Envio automático ativado nesta usina!",
+          "Envio automático geral ativado",
           isPreviewEnvironment
-            ? "Assim que o consumidor informar a leitura atual do medidor, o app verificará a fila em segundo plano e preparará a leitura para conferência."
-            : "Assim que o consumidor informar a leitura atual do medidor, ela entra na fila da usina. Na próxima verificação em segundo plano, o app envia à Cemig as leituras elegíveis e registra o protocolo quando o envio for confirmado.",
+            ? "Ativado para todas as UCs rurais habilitadas desta usina, neste aparelho. No Preview, as leituras elegíveis são preparadas para conferência. UCs desativadas individualmente continuam de fora."
+            : "Ativado para todas as UCs rurais habilitadas desta usina, neste aparelho. O app verificará a fila em segundo plano e enviará as leituras elegíveis à Cemig. UCs desativadas individualmente continuam de fora. O protocolo só aparece após a confirmação do envio.",
         );
       } else {
-        Alert.alert("Envio automático desativado nesta usina");
+        Alert.alert("Envio automático geral desativado", "O envio automático fica pausado para todas as UCs rurais desta usina neste aparelho. As configurações individuais das UCs e o histórico permanecem salvos.");
       }
     } catch (e: any) {
       Alert.alert("Configuração indisponível", e?.response?.data?.message ?? e.message);
@@ -89,11 +89,13 @@ export default function AutomaticReadingControl({ usinaId }: { usinaId: string }
   return <Card>
           <View style={styles.automationHeader}>
             <Ionicons name="sync-outline" size={24} color={Colors.primary} />
-            <Text style={styles.title}>Envio automático de leituras</Text>
+            <Text style={styles.title}>Envio automático geral de leituras</Text>
           </View>
           <Text style={styles.scope}>Todas as UCs rurais habilitadas desta usina · neste aparelho</Text>
-          <Button title={configurando ? "Salvando…" : envioAtivo === true ? "Desativar envio automático" : "Ativar envio automático"} disabled={configurando} onPress={() => { void configurarEnvioAutomatico(envioAtivo !== true); }} />
-          <Text accessibilityLiveRegion="polite" style={styles.status}>{configurando ? "Salvando configuração…" : envioAtivo === undefined ? "Estado geral ainda não confirmado neste aparelho." : envioAtivo ? "Ativado neste aparelho" : "Desativado neste aparelho"}</Text>
+          <View style={styles.actionArea}>
+            <Button title={configurando ? "Salvando…" : envioAtivo === true ? "Desativar envio geral" : "Ativar envio geral"} disabled={configurando} onPress={() => { void configurarEnvioAutomatico(envioAtivo !== true); }} />
+          </View>
+          <Text accessibilityLiveRegion="polite" style={[styles.status, styles.generalState]}>{configurando ? "Salvando configuração…" : envioAtivo === undefined ? "Estado geral ainda não confirmado neste aparelho." : envioAtivo ? "Envio geral ativado neste aparelho" : "Envio geral desativado neste aparelho"}</Text>
           <Text style={styles.explanation}>{envioAtivo === false ? "As leituras recebidas continuam no histórico, mas este aparelho não fará novos envios automáticos. Você pode usar o envio manual." : isPreviewEnvironment ? "Quando ativado, o Preview verifica a fila desta usina em segundo plano e prepara as leituras elegíveis para conferência." : "Quando ativado, o app verifica a fila desta usina em segundo plano e envia as leituras elegíveis à Cemig. A configuração vale para as UCs desta usina, não apenas para esta unidade."}</Text>
           {unidades.isPending ? <Text style={styles.explanation}>Consultando UCs rurais…</Text> : unidades.isError ? <><Text style={styles.explanation}>Não foi possível consultar as UCs. As quantidades não estão disponíveis.</Text><Button title="Atualizar UCs" onPress={() => void unidades.refetch()} /></> : <>
             <TouchableOpacity accessibilityRole="button" onPress={() => setListaVisivel(listaVisivel === "desativadas" ? null : "desativadas")} style={styles.notice}>
@@ -115,5 +117,5 @@ export default function AutomaticReadingControl({ usinaId }: { usinaId: string }
           <Text style={styles.explanation}>O Android define o momento da verificação. É necessário ter internet e acesso válido à Cemig. O protocolo só aparece após a confirmação do envio.</Text>
         </Card>;
 }
-const styles = StyleSheet.create({ notice: { flexDirection: "row", alignItems: "center", gap: 10, padding: 14, marginTop: 14, borderRadius: 12, backgroundColor: "#FFF4D6" }, unitRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Colors.primaryLight }, unitIdentity: { flex: 1 }, unitState: { flex: 1, alignItems: "flex-end" }, unitName: { color: Colors.primaryDark, fontWeight: "700" }, unitStatus: { color: Colors.primary, fontWeight: "800" }, unitInactive: { color: Colors.subtitle }, reason: { color: Colors.subtitle, fontSize: 12, textAlign: "right", marginTop: 4 }, content: { padding: Spacing.lg, gap: Spacing.lg }, title: { fontSize: 18, fontWeight: "700", color: Colors.primary }, actions: { gap: Spacing.md }, automationHeader: { flexDirection: "row", alignItems: "center", gap: Spacing.sm }, scope: { color: Colors.subtitle, fontSize: 13, marginTop: Spacing.sm }, toggle: { flexDirection: "row", gap: Spacing.sm, marginTop: Spacing.md }, toggleOption: { flex: 1, minHeight: 52, borderRadius: 12, borderWidth: 1, borderColor: Colors.primaryLight, backgroundColor: Colors.surface, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, padding: Spacing.sm }, toggleOn: { backgroundColor: Colors.primary, borderColor: Colors.primary }, toggleOff: { backgroundColor: Colors.primaryDark, borderColor: Colors.primaryDark }, toggleText: { fontSize: 15, fontWeight: "700", color: Colors.primaryDark }, toggleSelectedText: { color: "#FFFFFF" }, busy: { opacity: 0.6 }, status: { color: Colors.primaryDark, fontWeight: "700", marginTop: Spacing.md }, explanation: { color: Colors.subtitle, fontSize: 13, lineHeight: 20, marginTop: Spacing.sm } });
+const styles = StyleSheet.create({ actionArea: { marginTop: 24, marginBottom: 24 }, generalState: { marginTop: 0 }, notice: { flexDirection: "row", alignItems: "center", gap: 10, padding: 14, marginTop: 14, borderRadius: 12, backgroundColor: "#FFF4D6" }, unitRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Colors.primaryLight }, unitIdentity: { flex: 1 }, unitState: { flex: 1, alignItems: "flex-end" }, unitName: { color: Colors.primaryDark, fontWeight: "700" }, unitStatus: { color: Colors.primary, fontWeight: "800" }, unitInactive: { color: Colors.subtitle }, reason: { color: Colors.subtitle, fontSize: 12, textAlign: "right", marginTop: 4 }, content: { padding: Spacing.lg, gap: Spacing.lg }, title: { flexShrink: 1, fontSize: 18, fontWeight: "700", color: Colors.primary }, actions: { gap: Spacing.md }, automationHeader: { flexDirection: "row", alignItems: "center", gap: Spacing.sm }, scope: { color: Colors.subtitle, fontSize: 13, marginTop: Spacing.sm }, toggle: { flexDirection: "row", gap: Spacing.sm, marginTop: Spacing.md }, toggleOption: { flex: 1, minHeight: 52, borderRadius: 12, borderWidth: 1, borderColor: Colors.primaryLight, backgroundColor: Colors.surface, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, padding: Spacing.sm }, toggleOn: { backgroundColor: Colors.primary, borderColor: Colors.primary }, toggleOff: { backgroundColor: Colors.primaryDark, borderColor: Colors.primaryDark }, toggleText: { fontSize: 15, fontWeight: "700", color: Colors.primaryDark }, toggleSelectedText: { color: "#FFFFFF" }, busy: { opacity: 0.6 }, status: { color: Colors.primaryDark, fontWeight: "700", marginTop: Spacing.md }, explanation: { color: Colors.subtitle, fontSize: 13, lineHeight: 20, marginTop: Spacing.sm } });
 
