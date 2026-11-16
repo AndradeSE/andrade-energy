@@ -1,5 +1,50 @@
 [
   {
+    "numero": "OTA 20261115-202322",
+    "data": "15/11/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Solar: cadastro da UC contato proprio contrato e autoleitura [gerador]"
+    ]
+  },
+  {
+    "numero": "OTA 20261115-202128",
+    "data": "15/11/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Solar: cadastro da UC contato proprio contrato e autoleitura [live]"
+    ]
+  },
+  {
+    "numero": "OTA 20261115-201945",
+    "data": "15/11/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Solar: cadastro da UC contato proprio contrato e autoleitura [arm32]"
+    ]
+  },
+  {
+    "numero": "OTA 20261115-201806",
+    "data": "15/11/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Solar: cadastro da UC contato proprio contrato e autoleitura [refresh]"
+    ]
+  },
+  {
+    "numero": "OTA 20261115-201623",
+    "data": "15/11/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Solar: cadastro da UC contato proprio contrato e autoleitura [camera]"
+    ]
+  },
+  {
     "numero": "OTA 20261115-200707",
     "data": "15/11/2026",
     "variant": "gerador",
