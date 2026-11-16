@@ -1,5 +1,23 @@
 [
   {
+    "numero": "OTA 20261116-114448",
+    "data": "16/11/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Leituras: confirmacao explicita do envio geral e mais espaco no botao"
+    ]
+  },
+  {
+    "numero": "OTA 20261116-114012",
+    "data": "16/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Leituras: confirmacao explicita do envio geral e mais espaco no botao"
+    ]
+  },
+  {
     "numero": "OTA 20261116-113330",
     "data": "16/11/2026",
     "variant": "gerador",
