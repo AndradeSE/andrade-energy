@@ -575,6 +575,7 @@ function RootNavigator() {
           }}
         />
         <Stack.Screen name="operacao/rateio" options={{headerShown:false}} />
+        <Stack.Screen name="operacao/leituras-automaticas" options={{headerShown:false}} />
 
         {/* =========================== */}
         {/* CONTRATOS                   */}
