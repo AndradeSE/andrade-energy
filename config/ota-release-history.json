@@ -1,5 +1,23 @@
 [
   {
+    "numero": "OTA 20261116-131915",
+    "data": "16/11/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Mantem estado do envio automatico por usuario e usina ao reabrir"
+    ]
+  },
+  {
+    "numero": "OTA 20261116-131635",
+    "data": "16/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Corrige persistencia do envio automatico ao reabrir o app"
+    ]
+  },
+  {
     "numero": "OTA 20261116-114448",
     "data": "16/11/2026",
     "variant": "gerador",
