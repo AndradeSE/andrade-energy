@@ -56,4 +56,3 @@ const styles = StyleSheet.create({
   flow: { width: 42, height: 4, borderRadius: Radius.round, backgroundColor: Colors.primary },
   revision: { position: "absolute", bottom: Spacing.xl, alignSelf: "center", color: "#FFFFFF", opacity: 0.65, fontSize: 9, letterSpacing: 0.2 },
 });
-
