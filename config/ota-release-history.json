@@ -1,5 +1,14 @@
 [
   {
+    "numero": "OTA 20261116-112622",
+    "data": "16/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Rateio: indicadores no topo e painel de leituras automaticas no final da pagina"
+    ]
+  },
+  {
     "numero": "OTA 20261116-084956",
     "data": "16/11/2026",
     "variant": "gerador",
