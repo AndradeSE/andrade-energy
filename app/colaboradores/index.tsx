@@ -46,7 +46,7 @@ export default function Colaboradores({ modoAbaGerador = false, modoConvite = fa
 
   return <Screen edges={["top", "left", "right"]}>
     <AppHeader variant={modoAbaGerador ? "main" : "subpage"} title={modoConvite ? "Convidar colaborador" : "Colaboradores"} subtitle="Equipe e permissões" contextTitle="Gestão de acessos" contextSubtitle="Convites e acessos operacionais" icon="people-outline" />
-    <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+    {carregando && !modoConvite ? <Loading /> : <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       {!modoAbaGerador ? <TouchableOpacity onPress={() => router.back()} style={styles.back}><Ionicons name="arrow-back" size={20} color={Colors.primary}/><Text style={styles.backText}>Voltar</Text></TouchableOpacity> : null}
       {modoConvite ? <>
       <Text style={styles.title}>{comercial ? "Convidar para a equipe comercial" : "Convidar para a equipe do gerador"}</Text>
@@ -71,9 +71,9 @@ export default function Colaboradores({ modoAbaGerador = false, modoConvite = fa
         <Text style={styles.auditLink}>Ver atividades dos colaboradores</Text>
         <Ionicons name="chevron-forward" size={18} color={Colors.primary} />
       </TouchableOpacity>
-      {carregando ? <Loading /> : lista.length ? lista.map((item: any) => <Member key={`${item.pendente}-${item.id}`} item={item} onChange={carregar} promocoes={dados.promocoesPermitidas ?? []}/>) : <Card><Text style={styles.empty}>Nenhum colaborador ou convite cadastrado.</Text></Card>}
+      {lista.length ? lista.map((item: any) => <Member key={`${item.pendente}-${item.id}`} item={item} onChange={carregar} promocoes={dados.promocoesPermitidas ?? []}/>) : <Card><Text style={styles.empty}>Nenhum colaborador ou convite cadastrado.</Text></Card>}
       </>}
-    </ScrollView>
+    </ScrollView>}
   </Screen>;
 }
 
