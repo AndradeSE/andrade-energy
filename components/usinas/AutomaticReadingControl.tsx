@@ -1,3 +1,4 @@
+import { readingAutomationKey, sessionUserId } from "../../storage/session-identity";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useCallback, useRef, useState } from "react";
 import { useFocusEffect } from "expo-router";
@@ -23,19 +24,19 @@ export default function AutomaticReadingControl({ usinaId }: { usinaId: string }
   useFocusEffect(useCallback(() => { if (nativeAvailable) void unidades.refetch(); }, [usinaId, nativeAvailable]));
   const [listaVisivel, setListaVisivel] = useState<"ativadas" | "desativadas" | null>(null);
   const [configurando, setConfigurando] = useState(false);
-  const [estadoEnvio, setEstadoEnvio] = useState<{ id: string; ativo: boolean }>();
+  const [estadoEnvio, setEstadoEnvio] = useState<{ owner: string; id: string; ativo: boolean }>();
   const estadoRevision = useRef(0);
   useFocusEffect(useCallback(() => {
     let ativa = true;
     const revision = estadoRevision.current;
     void Promise.all([obterSessao(), AsyncStorage.getItem(CHAVE_ESTADO_AUTOLEITURA)]).then(([sessao, salvo]) => {
-      if (!ativa || !sessao?.id || !salvo) return;
-      const valor = JSON.parse(salvo)?.[JSON.stringify([sessao.id, usinaId])];
-      if (typeof valor === "boolean" && revision === estadoRevision.current) setEstadoEnvio({ id: usinaId, ativo: valor });
+      if (!ativa || sessionUserId(sessao) !== user?.id || !salvo) return;
+      const valor = JSON.parse(salvo)?.[readingAutomationKey(sessao, usinaId)];
+      if (typeof valor === "boolean" && revision === estadoRevision.current) setEstadoEnvio({ owner: sessionUserId(sessao)!, id: usinaId, ativo: valor });
     }).catch(() => undefined);
     return () => { ativa = false; };
-  }, [usinaId]));
-  const envioAtivo = estadoEnvio?.id === usinaId ? estadoEnvio.ativo : undefined;
+  }, [usinaId, user?.id]));
+  const envioAtivo = estadoEnvio?.owner === user?.id && estadoEnvio?.id === usinaId ? estadoEnvio.ativo : undefined;
   const resumo = summarizeReadingAutomation(unidades.data, usinaId, envioAtivo);
   async function configurarEnvioAutomatico(ativar: boolean) {
     if (configurando) return;
@@ -43,6 +44,8 @@ export default function AutomaticReadingControl({ usinaId }: { usinaId: string }
     try {
       const sessao = await obterSessao();
       const unidade = { usina_id: usinaId };
+      const chave = readingAutomationKey(sessao, usinaId);
+      if (sessionUserId(sessao) !== user?.id) throw new Error("A sessão mudou. Abra esta tela novamente.");
       if (!sessao?.token || !unidade?.usina_id) throw new Error("Confirme a sessão e a usina selecionada.");
       const fila = ativar ? await api.get(`/clientes/autoleitura/fila/${encodeURIComponent(unidade.usina_id)}`) : null;
       const result = await IntentLauncher.startActivityAsync("android.intent.action.VIEW", {
@@ -57,16 +60,13 @@ export default function AutomaticReadingControl({ usinaId }: { usinaId: string }
       });
       if (result.resultCode !== IntentLauncher.ResultCode.Success) throw new Error("O Android não aceitou a configuração.");
       estadoRevision.current += 1;
-      setEstadoEnvio({ id: usinaId, ativo: ativar });
-      if (sessao.id) {
-        const chave = JSON.stringify([sessao.id, unidade.usina_id]);
-        try {
-          const salvo = await AsyncStorage.getItem(CHAVE_ESTADO_AUTOLEITURA);
-          const estados = salvo ? JSON.parse(salvo) : {};
-          await AsyncStorage.setItem(CHAVE_ESTADO_AUTOLEITURA, JSON.stringify({ ...estados, [chave]: ativar }));
-        } catch {
-          await AsyncStorage.removeItem(CHAVE_ESTADO_AUTOLEITURA).catch(() => undefined);
-        }
+      setEstadoEnvio({ owner: sessionUserId(sessao)!, id: usinaId, ativo: ativar });
+      try {
+        const salvo = await AsyncStorage.getItem(CHAVE_ESTADO_AUTOLEITURA);
+        const estados = salvo ? JSON.parse(salvo) : {};
+        await AsyncStorage.setItem(CHAVE_ESTADO_AUTOLEITURA, JSON.stringify({ ...estados, [chave]: ativar }));
+      } catch {
+        throw new Error("O Android aplicou a configuração, mas não foi possível salvar o estado para a próxima abertura. Tente novamente.");
       }
       if (ativar) {
         Alert.alert(

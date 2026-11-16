@@ -6,6 +6,7 @@ import { environmentKeySuffix } from "../config/environment";
 import Constants from 'expo-constants';
 import * as Application from 'expo-application';
 import * as IntentLauncher from 'expo-intent-launcher';
+import { sessionUserId } from './session-identity';
 
 export const CHAVE_ESTADO_AUTOLEITURA = `@andrade_autoleitura_estado${environmentKeySuffix}`;
 const CHAVE = `@andrade_energy_usuario${environmentKeySuffix}`;
@@ -31,11 +32,13 @@ async function encerrarAutomacaoNativa(){
 export async function salvarSessao(usuario: any) {
   if (Platform.OS !== "web") {
     const anterior=await secureSession.get();
-    if(anterior?.id&&anterior.id!==usuario?.id){
+    const anteriorId = sessionUserId(anterior);
+    const novoId = sessionUserId(usuario);
+    if(anteriorId && anteriorId !== novoId){
       await encerrarAutomacaoNativa();
       await AsyncStorage.removeItem(CHAVE_ESTADO_AUTOLEITURA).catch(() => undefined);
     }
-    else if(anterior?.id===usuario?.id&&anterior?.token!==usuario?.token&&Platform.OS==='android'&&Constants.expoConfig?.extra?.nativeCemigAutomation===true){
+    else if(anteriorId && anteriorId === novoId && anterior?.token!==usuario?.token&&Platform.OS==='android'&&Constants.expoConfig?.extra?.nativeCemigAutomation===true){
       await IntentLauncher.startActivityAsync('android.intent.action.VIEW',{packageName:pacoteAutomacao(),className:'br.com.andradeenergy.cemig.CemigBrowserActivity',extra:{rateioAutomationRefreshToken:usuario.token}});
     }
     return secureSession.save(usuario);
@@ -59,6 +62,7 @@ export async function obterSessao() {
 
 export async function removerSessao() {
   await encerrarAutomacaoNativa();
+  await AsyncStorage.removeItem(CHAVE_ESTADO_AUTOLEITURA);
   if (Platform.OS !== "web") return secureSession.remove();
   await AsyncStorage.removeItem(CHAVE);
 }
