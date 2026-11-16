@@ -1,5 +1,176 @@
 [
   {
+    "numero": "OTA 20261116-065716",
+    "data": "16/11/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Carregamento padrao em tela inteira nos historicos e colaboradores; logo apenas na abertura"
+    ]
+  },
+  {
+    "numero": "OTA 20261116-065538",
+    "data": "16/11/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Carregamento padrao em tela inteira nos historicos e colaboradores; logo apenas na abertura"
+    ]
+  },
+  {
+    "numero": "OTA 20261116-065402",
+    "data": "16/11/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Carregamento padrao em tela inteira nos historicos e colaboradores; logo apenas na abertura"
+    ]
+  },
+  {
+    "numero": "OTA 20261116-065226",
+    "data": "16/11/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Carregamento padrao em tela inteira nos historicos e colaboradores; logo apenas na abertura"
+    ]
+  },
+  {
+    "numero": "OTA 20261116-065048",
+    "data": "16/11/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Carregamento padrao em tela inteira nos historicos e colaboradores; logo apenas na abertura"
+    ]
+  },
+  {
+    "numero": "OTA 20261116-064545",
+    "data": "16/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Corrige historicos e equipe com carregamento padrao em tela inteira"
+    ]
+  },
+  {
+    "numero": "OTA 20261116-064404",
+    "data": "16/11/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Corrige historicos e equipe com carregamento padrao em tela inteira"
+    ]
+  },
+  {
+    "numero": "OTA 20261116-064234",
+    "data": "16/11/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Restaura carregamento interno padrao; abertura sem barra; colaboradores em area inteira"
+    ]
+  },
+  {
+    "numero": "OTA 20261116-064053",
+    "data": "16/11/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Restaura carregamento interno padrao; abertura sem barra; colaboradores em area inteira"
+    ]
+  },
+  {
+    "numero": "OTA 20261116-063912",
+    "data": "16/11/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Restaura carregamento interno padrao; abertura sem barra; colaboradores em area inteira"
+    ]
+  },
+  {
+    "numero": "OTA 20261116-063551",
+    "data": "16/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Restaura indicador interno aprovado e corrige carregamento parcial de colaboradores"
+    ]
+  },
+  {
+    "numero": "OTA 20261116-063406",
+    "data": "16/11/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Restaura indicador interno aprovado e corrige carregamento parcial de colaboradores"
+    ]
+  },
+  {
+    "numero": "OTA 20261116-063203",
+    "data": "16/11/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Restaura carregamento interno padrao aprovado; logo apenas na abertura sem barra"
+    ]
+  },
+  {
+    "numero": "OTA 20261116-063015",
+    "data": "16/11/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Padrao de carregamento com logo animada sem barras de progresso"
+    ]
+  },
+  {
+    "numero": "OTA 20261116-062639",
+    "data": "16/11/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Carregamentos padronizados somente com logo animada sem barras de progresso"
+    ]
+  },
+  {
+    "numero": "OTA 20261116-062220",
+    "data": "16/11/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Historico com logo animada padrao e abertura sem barra"
+    ]
+  },
+  {
+    "numero": "OTA 20261116-062011",
+    "data": "16/11/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Historico com logo animada padrao e abertura sem barra"
+    ]
+  },
+  {
+    "numero": "OTA 20261116-061822",
+    "data": "16/11/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Padroniza carregamento do historico com logo animada"
+    ]
+  },
+  {
+    "numero": "OTA 20261116-061741",
+    "data": "16/11/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Padroniza carregamento do historico com logo animada"
+    ]
+  },
+  {
     "numero": "OTA 20261115-202322",
     "data": "15/11/2026",
     "variant": "gerador",
