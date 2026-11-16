@@ -1,8 +1,10 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useEffect, useState } from "react";
-import { useLocalSearchParams } from "expo-router";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useFocusEffect, useLocalSearchParams } from "expo-router";
 import { Alert, Linking, ScrollView, StyleSheet, Text, View } from "react-native";
 import Constants from "expo-constants";
+import { Ionicons } from "@expo/vector-icons";
+import { TouchableOpacity } from "../../components/assistant/AssistantNativeControls";
 import * as IntentLauncher from "expo-intent-launcher";
 import { AppHeader, Button, Card, Loading, Screen } from "../../components/ui";
 import { buscarUnidade, listarAutoleituras } from "../../services/clientes.service";
@@ -20,6 +22,7 @@ export default function LeiturasDaUc() {
   const [configurando, setConfigurando] = useState(false);
   const [estadoEnvio, setEstadoEnvio] = useState<{ id: string; ativo: boolean }>();
   const [erro, setErro] = useState(false);
+  const estadoRevision = useRef(0);
   async function carregar() {
     setCarregando(true); setErro(false);
     try { setLeituras(await listarAutoleituras(id)); }
@@ -27,7 +30,8 @@ export default function LeiturasDaUc() {
     finally { setCarregando(false); }
   }
   useEffect(() => { void carregar(); }, [id]);
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
+    const revision = estadoRevision.current;
     if (Constants.expoConfig?.extra?.nativeCemigAutoleitura !== true || !id) return;
     let ativa = true;
     void Promise.all([buscarUnidade(id), obterSessao(), AsyncStorage.getItem(CHAVE_ESTADO_AUTOLEITURA)])
@@ -35,11 +39,11 @@ export default function LeiturasDaUc() {
         if (!ativa || !unidade?.usina_id || !sessao?.id || !salvo) return;
         const estados = JSON.parse(salvo) as Record<string, boolean>;
         const valor = estados[JSON.stringify([sessao.id, unidade.usina_id])];
-        if (typeof valor === "boolean") setEstadoEnvio(atual => atual?.id === id ? atual : { id, ativo: valor });
+        if (typeof valor === "boolean" && revision === estadoRevision.current) setEstadoEnvio({ id, ativo: valor });
       })
       .catch(() => undefined);
     return () => { ativa = false; };
-  }, [id]);
+  }, [id]));
 
   const envioAtivo = estadoEnvio?.id === id ? estadoEnvio?.ativo : undefined;
   const pendente = leituras.find(item => item.estado === "RECEBIDA");
@@ -62,6 +66,7 @@ export default function LeiturasDaUc() {
         },
       });
       if (result.resultCode !== IntentLauncher.ResultCode.Success) throw new Error("O Android não aceitou a configuração.");
+      estadoRevision.current += 1;
       setEstadoEnvio({ id, ativo: ativar });
       if (sessao.id) {
         const chave = JSON.stringify([sessao.id, unidade.usina_id]);
@@ -99,14 +104,25 @@ export default function LeiturasDaUc() {
       {pendente ? <Card><Text style={styles.title}>{pendente.leitura_kwh} kWh</Text><Text>Leitura recebida · prazo {pendente.data_programada.split("-").reverse().join("/")}</Text></Card> : null}
       <View style={styles.actions}>
         <Button title="Envio manual" onPress={() => Alert.alert("Envio manual", "O portal da Cemig será aberto. Selecione esta UC, informe a leitura e guarde o protocolo. O app não marcará um envio manual como protocolado sem confirmação.", [{ text: "Cancelar", style: "cancel" }, { text: "Abrir Cemig", onPress: () => { void Linking.openURL("https://atende.cemig.com.br/Login").catch(() => Alert.alert("Não foi possível abrir a Cemig")); } }])} />
-        {Constants.expoConfig?.extra?.nativeCemigAutoleitura === true ? <>
-          <Text accessibilityLiveRegion="polite">Envio automático nesta usina · {envioAtivo === true ? "Ativado neste aparelho" : envioAtivo === false ? "Desativado neste aparelho" : "Status ainda não confirmado neste aparelho"}</Text>
-          <Button title={configurando ? "Salvando…" : "Envio automático"} disabled={configurando} onPress={() => Alert.alert("Envio automático da usina", isPreviewEnvironment ? "O app verifica a fila em segundo plano e prepara leituras para conferência no Preview." : "O app verifica a fila desta usina em segundo plano e envia as leituras elegíveis à Cemig. Se o portal pedir verificação, o envio poderá precisar de revisão.", [
-          { text: "Cancelar", style: "cancel" },
-          { text: "Desativar", onPress: () => { void configurarEnvioAutomatico(false); } },
-          { text: "Ativar", onPress: () => { void configurarEnvioAutomatico(true); } },
-        ])} />
-        </> : null}
+        {Constants.expoConfig?.extra?.nativeCemigAutoleitura === true ? <Card>
+          <View style={styles.automationHeader}>
+            <Ionicons name="sync-outline" size={24} color={Colors.primary} />
+            <Text style={styles.title}>Envio automático de leituras</Text>
+          </View>
+          <Text style={styles.scope}>Configuração desta usina neste aparelho</Text>
+          <View accessibilityRole="radiogroup" style={styles.toggle}>
+            {([false, true] as const).map(ativar => {
+              const selecionado = envioAtivo === ativar;
+              return <TouchableOpacity key={String(ativar)} accessibilityRole="radio" accessibilityLabel={ativar ? "Ativar envio automático de leituras" : "Desativar envio automático de leituras"} accessibilityState={{ checked: selecionado, disabled: configurando, busy: configurando }} disabled={configurando || selecionado} onPress={() => { void configurarEnvioAutomatico(ativar); }} style={[styles.toggleOption, selecionado && (ativar ? styles.toggleOn : styles.toggleOff), configurando && styles.busy]}>
+                <Ionicons name={ativar ? "checkmark-circle-outline" : "pause-circle-outline"} size={21} color={selecionado ? "#FFFFFF" : Colors.primaryDark} />
+                <Text style={[styles.toggleText, selecionado && styles.toggleSelectedText]}>{ativar ? "Ativado" : "Desativado"}</Text>
+              </TouchableOpacity>;
+            })}
+          </View>
+          <Text accessibilityLiveRegion="polite" style={styles.status}>{configurando ? "Salvando configuração…" : envioAtivo === undefined ? "Estado ainda não confirmado. Escolha uma opção para configurar neste aparelho." : envioAtivo ? "Ativado neste aparelho" : "Desativado neste aparelho"}</Text>
+          <Text style={styles.explanation}>{envioAtivo === false ? "As leituras recebidas continuam no histórico, mas este aparelho não fará novos envios automáticos. Você pode usar o envio manual." : isPreviewEnvironment ? "Quando ativado, o Preview verifica a fila desta usina em segundo plano e prepara as leituras elegíveis para conferência." : "Quando ativado, o app verifica a fila desta usina em segundo plano e envia as leituras elegíveis à Cemig. A configuração vale para as UCs desta usina, não apenas para esta unidade."}</Text>
+          <Text style={styles.explanation}>O Android define o momento da verificação. É necessário ter internet e acesso válido à Cemig. O protocolo só aparece após a confirmação do envio.</Text>
+        </Card> : null}
       </View>
       <Text style={styles.title}>Histórico de envio</Text>
       {erro ? <><Text>Não foi possível consultar o histórico.</Text><Button title="Tentar novamente" onPress={carregar} /></> : !leituras.length ? <Text>Nenhuma leitura recebida para esta UC.</Text> : leituras.map(item => <Card key={item.id}>
@@ -119,4 +135,4 @@ export default function LeiturasDaUc() {
     </ScrollView>
   </Screen>;
 }
-const styles = StyleSheet.create({ content: { padding: Spacing.lg, gap: Spacing.lg }, title: { fontSize: 18, fontWeight: "700", color: Colors.primary }, actions: { gap: Spacing.md } });
+const styles = StyleSheet.create({ content: { padding: Spacing.lg, gap: Spacing.lg }, title: { fontSize: 18, fontWeight: "700", color: Colors.primary }, actions: { gap: Spacing.md }, automationHeader: { flexDirection: "row", alignItems: "center", gap: Spacing.sm }, scope: { color: Colors.subtitle, fontSize: 13, marginTop: Spacing.sm }, toggle: { flexDirection: "row", gap: Spacing.sm, marginTop: Spacing.md }, toggleOption: { flex: 1, minHeight: 52, borderRadius: 12, borderWidth: 1, borderColor: Colors.primaryLight, backgroundColor: Colors.surface, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, padding: Spacing.sm }, toggleOn: { backgroundColor: Colors.primary, borderColor: Colors.primary }, toggleOff: { backgroundColor: Colors.primaryDark, borderColor: Colors.primaryDark }, toggleText: { fontSize: 15, fontWeight: "700", color: Colors.primaryDark }, toggleSelectedText: { color: "#FFFFFF" }, busy: { opacity: 0.6 }, status: { color: Colors.primaryDark, fontWeight: "700", marginTop: Spacing.md }, explanation: { color: Colors.subtitle, fontSize: 13, lineHeight: 20, marginTop: Spacing.sm } });
