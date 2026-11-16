@@ -44,9 +44,9 @@ export default function RateioOperacao({simulationOnly=false}:{simulationOnly?:b
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap:8}}>
           {[...new Set([...(resumo.data?.competencias??[]),...(competencia?[competencia]:[])])].sort().map((item:string)=><Pressable key={item} accessibilityRole="button" accessibilityState={{selected:item===competencia}} onPress={()=>setMes(item)} style={{padding:12,borderRadius:24,backgroundColor:item===competencia?Colors.primary:Colors.surface}}><Text style={{color:item===competencia?'#fff':Colors.text}}>{item.slice(5,7)}/{item.slice(0,4)}</Text></Pressable>)}
         </ScrollView>
-        {!simulationOnly ? <AutomaticReadingControl key={`reading-${id}`} usinaId={id} /> : null}
         {resumo.isError?<Card><Text>Não foi possível consultar as competências.</Text><Button title="Tentar novamente" onPress={()=>void resumo.refetch()}/></Card>:competencia?simulationOnly?<Card><Text>Teste técnico restrito ao ADM de homologação. Não é uma simulação de economia do cliente.</Text></Card>:<RateioMensalCard abrirEnvio={params.secao==="envio"} key={id} usinaId={id} empresaId={String(user?.empresa_id??'')} competencia={competencia}/>:<TabDataPending />}
         {!simulationOnly&&testesTecnicos&&competencia?<Pressable accessibilityRole="button" onPress={()=>router.push({pathname:'/operacao/simulacao-rateio' as any,params:{usinaId:id,competencia}})} style={{paddingVertical:20}}><Text style={{color:Colors.primary,fontWeight:'700'}}>Teste técnico da Cemig · ADM</Text><Text style={{color:Colors.subtitle,marginTop:6}}>Homologação do navegador e anexo. Não faz parte do fluxo mensal.</Text></Pressable>:null}
+        {!simulationOnly ? <AutomaticReadingControl key={`reading-${id}`} usinaId={id} /> : null}
       </>}
     </ScrollView>
   </Screen>;
