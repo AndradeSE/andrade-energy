@@ -1,5 +1,23 @@
 [
   {
+    "numero": "OTA 20261116-075906",
+    "data": "16/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Operacao: controle geral Ativado/Desativado para leituras rurais; desativacao individual preservada na UC"
+    ]
+  },
+  {
+    "numero": "OTA 20261116-075137",
+    "data": "16/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Envio automatico de leituras com botoes Ativado e Desativado, estado destacado e explicacao"
+    ]
+  },
+  {
     "numero": "OTA 20261116-065716",
     "data": "16/11/2026",
     "variant": "consumidor",
