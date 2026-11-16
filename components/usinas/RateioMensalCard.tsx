@@ -100,7 +100,7 @@ export default function RateioMensalCard({usinaId,empresaId,competencia,abrirEnv
       <Button title={ocupado?"Preparando…":resultado?"Abrir planilha":"Gerar e abrir planilha"} disabled={ocupado||!competencia} onPress={()=>resultado?setVisualizando(true):void gerar()} />
       {resultado?<Button title="Atualizar planilha" disabled={ocupado} onPress={()=>Alert.alert("Atualizar planilha","Recalcular esta competência e enviar a nova cópia ao gerador?",[{text:"Cancelar",style:"cancel"},{text:"Atualizar",onPress:()=>void gerar()}])}/>:null}
     </View>:null}
-    <View style={{borderTopWidth:1,borderColor:Colors.border,paddingTop:18,marginTop:8}}><SecaoRateio titulo="2. Enviar à Cemig" resumo="Manual, autorizado ou automático" aberto={envioAberto} onPress={()=>setEnvioAberto(v=>!v)}/>{envioAberto?<View style={{gap:16}}><RateioSendOptions usinaId={usinaId} competencia={competencia} disabled={ocupado}/>{competencia?<CemigNativeBrowserProduction key={competencia} usinaId={usinaId} competencia={competencia}/>:null}</View>:null}</View>
+    <View style={{marginTop:8}}><SecaoRateio titulo="2. Enviar à Cemig" resumo="Manual, autorizado ou automático" aberto={envioAberto} onPress={()=>setEnvioAberto(v=>!v)}/>{envioAberto?<View style={{gap:16}}><RateioSendOptions usinaId={usinaId} competencia={competencia} disabled={ocupado}/>{competencia?<CemigNativeBrowserProduction key={competencia} usinaId={usinaId} competencia={competencia}/>:null}</View>:null}</View>
   </View></Card></>;
 }
 
