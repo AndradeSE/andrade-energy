@@ -42,7 +42,7 @@ export default function HistoricoAutoleituras() {
   return (
     <Screen>
       <AppHeader variant="subpage" contextTitle="Unidade consumidora" contextSubtitle="Leituras do medidor" title="Histórico de leituras" subtitle={numero ? `UC ${numero}` : "Unidade consumidora"} />
-      <ScrollView contentContainerStyle={{ padding: Spacing.lg, gap: Spacing.md }}>
+      <ScrollView contentContainerStyle={[styles.content, id && !atual ? styles.loadingContent : undefined]}>
         {id && !atual ? <Loading /> : vazio ? (
           <Card>
             <View style={styles.empty}>
@@ -71,6 +71,8 @@ export default function HistoricoAutoleituras() {
 }
 
 const styles = StyleSheet.create({
+  content: { padding: Spacing.lg, gap: Spacing.md },
+  loadingContent: { flexGrow: 1 },
   empty: { alignItems: "center", paddingVertical: Spacing.md, gap: Spacing.sm },
   record: { gap: Spacing.sm },
   title: { color: Colors.primaryDark, fontSize: 18, fontWeight: "800" },

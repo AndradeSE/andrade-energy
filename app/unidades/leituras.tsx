@@ -4,7 +4,7 @@ import { useLocalSearchParams } from "expo-router";
 import { Alert, Linking, ScrollView, StyleSheet, Text, View } from "react-native";
 import Constants from "expo-constants";
 import * as IntentLauncher from "expo-intent-launcher";
-import { AppHeader, Button, Card, Screen } from "../../components/ui";
+import { AppHeader, Button, Card, Loading, Screen } from "../../components/ui";
 import { buscarUnidade, listarAutoleituras } from "../../services/clientes.service";
 import api from "../../config/api";
 import { isPreviewEnvironment } from "../../config/environment";
@@ -107,7 +107,7 @@ export default function LeiturasDaUc() {
         </> : null}
       </View>
       <Text style={styles.title}>Histórico de envio</Text>
-      {carregando ? <Text>Consultando leituras...</Text> : erro ? <><Text>Não foi possível consultar o histórico.</Text><Button title="Tentar novamente" onPress={carregar} /></> : !leituras.length ? <Text>Nenhuma leitura recebida para esta UC.</Text> : leituras.map(item => <Card key={item.id}>
+      {carregando ? <Loading /> : erro ? <><Text>Não foi possível consultar o histórico.</Text><Button title="Tentar novamente" onPress={carregar} /></> : !leituras.length ? <Text>Nenhuma leitura recebida para esta UC.</Text> : leituras.map(item => <Card key={item.id}>
         <Text style={styles.title}>{item.leitura_kwh} kWh</Text>
         <Text>{item.data_programada.split("-").reverse().join("/")} · {estados[item.estado] ?? item.estado}</Text>
         {item.protocolo_cemig ? <Text>Protocolo {item.protocolo_cemig}</Text> : null}
