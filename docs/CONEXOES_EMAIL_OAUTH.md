@@ -119,3 +119,11 @@ Diagnóstico confirmado no banco principal: conexão da usina autorizada em 03/1
 O registro de push antigo da conta solicitante, sem atualização desde 28/10, foi desativado com comparação do ID e timestamp originais. Conferência posterior mostrou um único registro Gerador ativo; nenhuma notificação de teste foi enviada.
 
 Código preparado sobre o commit 040cf686, confirmado no /health da API de produção. 16 testes de Gmail/avisos/fila passaram e tsc --noEmit passou. Publicação depende da confirmação do workspace Render solicitado ao usuário. Não alterar o commit aprovado da contingência antes de verificar o artefato implantado.
+
+### Publicação confirmada — 17/11/2026
+
+Workspace tea-da0inh49v7es739fb35g confirmado pelo usuário; conta andradeenergyltda@gmail.com. Serviço de produção srv-da0iso5bedkc73asecig, branch codex/render-reserva-producao-20261024, autodeploy habilitado. Push da revisão 50b91bab536589fd4342d6c1820970f71ffac2cd iniciou somente um deploy, dep-dbu6cqlg1s2s73f0ioo0, confirmado live em 17/11/2026 14:39:11 UTC. Logs confirmaram compilação, validação de Neon/PostgREST e início na porta 10000; consulta de erros desde a inicialização retornou vazia.
+
+Após conferir o commit do deploy live e a inicialização, render_reserva_commit_validado foi atualizado no controle de produção por comparação com o commit anterior 040cf686 e revisão 4; executor RENDER e revisão preservados. Nenhum job financeiro ou protocolo foi disparado para teste. A consulta externa /health nesta rodada recebeu desafio Cloudflare HTTP 403, portanto não é registrada como HTTP 200 validado. O commit anterior foi identificado por /health antes da publicação e o novo commit foi confirmado nos metadados live do Render.
+
+Correção publicada do aviso independe de OTA/APK. O modo OAuth Google Cloud ainda não foi inspecionado, pois o navegador não inicializou nesta sessão. A conta Gmail precisa de nova autorização pelo titular; nenhum token rejeitado foi substituído nem reativado artificialmente.
