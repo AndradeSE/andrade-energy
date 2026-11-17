@@ -1,5 +1,6 @@
 import { anexoImagemFatura } from '../../services/ocr/anexoFaturaPolicy';
 import { tipoImagemFatura } from '../../services/ocr/imagemFatura';
+import { gmailDemoEnabled, DEMO_SENDER, DEMO_SUBJECT } from './gmailDemo.policy';
 export type ParteGmail = {
   partId?: string;
   filename?: string;
@@ -36,9 +37,9 @@ export async function consultarGmail<T>(token: string, caminho: string): Promise
   return resposta.json() as Promise<T>;
 }
 
-export async function listarMensagensFaturaGmail(token: string, desde: Date) {
+export async function listarMensagensFaturaGmail(token: string, desde: Date, recipient = '') {
   const query = new URLSearchParams({
-    q: `from:fatura@cemig.com.br has:attachment after:${Math.floor(desde.getTime() / 1000)}`,
+    q: `${gmailDemoEnabled(recipient) ? `{from:fatura@cemig.com.br {from:${DEMO_SENDER} subject:"${DEMO_SUBJECT}"}}` : 'from:fatura@cemig.com.br'} has:attachment after:${Math.floor(desde.getTime() / 1000)}`,
     maxResults: "100",
   });
   const mensagens: Array<{ id: string }> = [];

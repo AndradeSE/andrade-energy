@@ -1,5 +1,6 @@
 import { origemEmailPermitida } from "../recebimento-faturas/recebimentoOrigem.policy";
 import {priorizarConexoesGmail} from './gmailConexao.policy';
+import { gmailDemoMessageAllowed, DEMO_FILENAME } from './gmailDemo.policy';
 import { createHash } from "node:crypto";
 import { supabase } from "../../config/supabase";
 import { obterTokenLeituraGmail } from "./conexoesEmail.service";
@@ -46,13 +47,16 @@ export async function enfileirarFaturasGmail(deps: DependenciasGmail = {
         // Recupera contas recentes que chegaram antes da correção, sem ler toda a caixa.
         const desde = new Date(Date.now() - 30 * 24 * 60 * 60_000);
         etapa = "CONSULTAR_MENSAGENS";
-        for (const mensagem of await deps.listar(token, desde)) {
+        for (const mensagem of await deps.listar(token, desde, conexao.email_conectado)) {
           const dados = await deps.consultar<{ payload?: ParteGmail & { headers?: Array<{ name: string; value: string }> }; internalDate?: string }>(token,
             `messages/${encodeURIComponent(mensagem.id)}?format=full`);
           const headers = dados.payload?.headers ?? [];
           const remetente = headers.find(h => h.name.toLowerCase() === "from")?.value ?? "";
-          if (!/(?:^|<)fatura@cemig\.com\.br(?:>|$)/i.test(remetente.trim())) continue;
+          const assunto = headers.find(h => h.name.toLowerCase() === 'subject')?.value ?? '';
+          const demonstracao = gmailDemoMessageAllowed(conexao.email_conectado, remetente, assunto);
+          if (!/(?:^|<)fatura@cemig\.com\.br(?:>|$)/i.test(remetente.trim()) && !demonstracao) continue;
           for (const parte of anexosPdfGmail(dados.payload)) {
+            if (demonstracao && parte.filename !== DEMO_FILENAME) continue;
             const chave = createHash("sha256").update(`${caixa}:${mensagem.id}:${parte.partId ?? parte.body?.attachmentId}`).digest("hex");
             etapa = "ENFILEIRAR_PDF";
             const { error: erroFila } = await deps.db.from("recebimentos_faturas_email").upsert({
