@@ -1,3 +1,4 @@
+import { textoPublicoPush } from "./pushPublico.policy";
 import { supabase } from "../../config/supabase";
 import { deliverQueuedPush } from "./pushQueue";
 import { EMPRESA_ANDRADE_ID } from "../../config/empresa";
@@ -59,7 +60,7 @@ export async function enviarPushDaNotificacao(notificacao: NovaNotificacaoApp & 
     title: notificacao.titulo,
     // A tela bloqueada pode mostrar o push para terceiros. Os detalhes
     // pessoais ficam apenas na caixa de notificações após autenticação.
-    body: contexto || "Abra o aplicativo para ver os detalhes.",
+    body: textoPublicoPush(notificacao.titulo) ?? (contexto || "Abra o aplicativo para ver os detalhes."),
     sound: "default",
     channelId: "avisos-contexto",
     priority: "high",

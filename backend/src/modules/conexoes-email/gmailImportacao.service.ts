@@ -93,7 +93,7 @@ export async function enfileirarFaturasGmail(deps: DependenciasGmail = {
         }).eq("id", conexao.id);
         if (erroAtualizar) throw erroAtualizar;
         if (['GMAIL_LEITURA_NAO_AUTORIZADA','OAUTH_REAUTORIZACAO','GMAIL_API_DESATIVADA'].includes(codigo))
-          await deps.avisar?.({empresaId:conexao.empresa_id,unidadeId:conexao.unidade_consumidora_id,evento:'ERRO_IMPORTACAO',chave:`gmail:${conexao.id}:${new Date().toISOString().slice(0,10)}`,detalhe:'O faturamento automático encontrou uma conexão Gmail sem leitura autorizada ou indisponível. Confira a conexão de e-mail e autorize novamente quando solicitado. Nenhuma credencial deve ser informada à Solar.'}).catch(()=>console.error('Aviso da conexão Gmail pendente.'));
+          await deps.avisar?.({empresaId:conexao.empresa_id,unidadeId:conexao.unidade_consumidora_id,evento:'ERRO_IMPORTACAO',motivoGmail:codigo as 'OAUTH_REAUTORIZACAO'|'GMAIL_LEITURA_NAO_AUTORIZADA'|'GMAIL_API_DESATIVADA',chave:`gmail:${conexao.id}:${new Date().toISOString().slice(0,10)}`,detalhe:codigo==='OAUTH_REAUTORIZACAO'?'A autorização do Gmail expirou ou foi revogada. Reconecte o Gmail no recebimento automático desta unidade para retomar a importação das faturas.':codigo==='GMAIL_LEITURA_NAO_AUTORIZADA'?'O Gmail não tem permissão para ler as faturas. Reconecte a conta e autorize a leitura dos e-mails.':'A API Gmail está desativada na integração Google da Andrade Energy. A configuração precisa ser corrigida pela administração.'}).catch(()=>console.error('Aviso da conexão Gmail pendente.'));
       }
     }
   } finally { executando = false; }

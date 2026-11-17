@@ -109,3 +109,13 @@ Enquanto a pessoa está no navegador, a resposta traz `PENDENTE`. Ao voltar, ela
 - Não existe senha de e-mail armazenada no app ou na API.
 - O refresh token fica cifrado no banco; logs e respostas HTTP não contêm tokens.
 - Gmail não recebe uma regra de encaminhamento automática, deliberadamente. Isso evita contornar a confirmação que o próprio Gmail exige para encaminhamento em contas pessoais.
+
+## Avisos Gmail — 17/11/2026
+
+Quando o Google retorna OAUTH_REAUTORIZACAO (invalid_grant), o aviso informa “Gmail · autorização expirada ou revogada”, com ação de reconectar o Gmail no recebimento automático da unidade. Esse caso não usa o título de falha na leitura de produção. Permissão gmail.readonly ausente e API Gmail desativada recebem títulos/instruções próprios. O corpo público do push usa somente instruções fixas, sem e-mail, token ou dados da fatura; detalhes e destino da UC permanecem no app autenticado.
+
+Diagnóstico confirmado no banco principal: conexão da usina autorizada em 03/11 e erro de autorização em 17/11; falha anterior registrada em 10/11. Intervalo de sete dias é compatível com OAuth externo em Testing, mas o modo do projeto Google Cloud ainda precisa de confirmação. O navegador desta sessão não inicializou; nenhuma configuração Google foi alterada. Não é possível renovar um refresh token rejeitado sem novo consentimento do titular. Conferir Audience / Publishing status do cliente OAuth correto, publicar a integração conforme requisitos Google e então reconectar a conta pelo app. Não ampliar escopos nem trocar a chave de criptografia para contornar invalid_grant.
+
+O registro de push antigo da conta solicitante, sem atualização desde 28/10, foi desativado com comparação do ID e timestamp originais. Conferência posterior mostrou um único registro Gerador ativo; nenhuma notificação de teste foi enviada.
+
+Código preparado sobre o commit 040cf686, confirmado no /health da API de produção. 16 testes de Gmail/avisos/fila passaram e tsc --noEmit passou. Publicação depende da confirmação do workspace Render solicitado ao usuário. Não alterar o commit aprovado da contingência antes de verificar o artefato implantado.

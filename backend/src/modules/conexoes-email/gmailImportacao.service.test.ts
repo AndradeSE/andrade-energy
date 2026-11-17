@@ -138,3 +138,9 @@ test('timeout na autorização atual não desconecta nem tenta vínculos expirad
   assert.deepEqual(chamadas,['c1']);assert.equal(avisos,0);
   assert.equal(c.atualizacoes.length,1);assert.equal(c.atualizacoes[0].regra_status,'ATIVA');assert.equal(c.atualizacoes[0].regra_erro,null);
 });
+
+test('autorização expirada gera aviso OAuth específico sem informar falha de produção',async()=>{
+ const c=cenario({falha:true});const avisos:any[]=[];c.deps.avisar=async(a:any)=>avisos.push(a);
+ await enfileirarFaturasGmail(c.deps);
+ assert.equal(avisos.length,1);assert.equal(avisos[0].motivoGmail,'OAUTH_REAUTORIZACAO');assert.match(avisos[0].detalhe,/Reconecte o Gmail/);assert.doesNotMatch(avisos[0].detalhe,/token privado/);
+});
