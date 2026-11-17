@@ -12,6 +12,6 @@ export function gmailDemoEnabled(recipient: string, env = process.env, now = Dat
 }
 export function gmailDemoMessageAllowed(recipient: string, sender: string, subject: string, env = process.env, now = Date.now()): boolean {
   return gmailDemoEnabled(recipient, env, now)
-    && /^(?:Andrade Energy\s*<)?andradeenergyltda@gmail\.com>?$/i.test(sender.trim())
+    && /^(?:[^<>\r\n]*<)?andradeenergyltda@gmail\.com>?$/i.test(sender.trim())
     && subject === DEMO_SUBJECT;
 }
