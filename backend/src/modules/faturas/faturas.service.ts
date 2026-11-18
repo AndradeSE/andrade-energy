@@ -105,7 +105,9 @@ export async function detalharFatura(id: string, empresaId?: string, consumidor 
       : fatura.cobranca_erro
         ? String(fatura.cobranca_erro)
       : valorCobranca <= 0
-        ? "Não há valor Andrade a cobrar nesta competência porque nenhuma energia foi compensada."
+        ? Number(fatura.dados_extraidos?.creditos_pre_pagos?.utilizado_kwh ?? 0) > 0
+          ? "Não há nova cobrança: a energia compensada foi coberta por créditos já pagos."
+          : "Não há valor Andrade a cobrar nesta competência porque nenhuma energia foi compensada."
         : "A cobrança ainda não foi emitida. Abra novamente em alguns instantes ou procure o gestor.",
   }, consumidor);
 }
@@ -113,6 +115,9 @@ export async function detalharFatura(id: string, empresaId?: string, consumidor 
 export async function excluirFatura(id: string, empresaId?: string) {
   const fatura = await buscarFaturaPorId(id, empresaId);
   if (!fatura) throw new Error("Fatura não encontrada.");
+  if (Number(fatura.dados_extraidos?.creditos_pre_pagos?.utilizado_kwh ?? 0) > 0) {
+    throw new Error('Esta fatura consumiu créditos já pagos. Concilie o saldo antes de excluir ou cancelar a cobrança.');
+  }
   if (["PAGO", "PAGA", "RECEBIDO"].includes(String(fatura.status ?? "").toUpperCase())) {
     throw new Error("Esta fatura já foi paga. Não é possível apagá-la; confira a conciliação antes de qualquer estorno.");
   }
