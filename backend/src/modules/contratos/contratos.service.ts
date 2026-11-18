@@ -14,6 +14,8 @@ import {
 } from "./contratos.repository";
 import { supabase } from "../../config/supabase";
 import crypto from "crypto";
+import { consultarCreditosPagos } from '../creditos/creditosPagos.service';
+import { inserirFatura } from '../faturas/faturas.repository';
 import { enviarEmailTransacional } from "../email/emailTransacional.service";
 import { armazenarContratoAssinado, criarLinkContrato, gerarMinutaContrato, salvarDocumentoContrato, validarCadastroParaMinuta } from "./documentosContrato.service";
 import { obterPropostaParaConvite } from "../convites/propostaConvite.service";
@@ -766,8 +768,8 @@ export async function cancelarContratoService(id: string) {
     .select("*").eq("contrato_encerramento_id", id).maybeSingle();
   if (erroFaturaExistente) throw erroFaturaExistente;
   if (String(contrato.status ?? "").toUpperCase() === "CANCELADO") {
-    if (faturaExistente && faturaExistente.status !== "ABERTA") {
-      const ativada = await supabase.from("faturas").update({ status: "ABERTA" }).eq("id", faturaExistente.id).select().single();
+    if (faturaExistente && !["ABERTA", "PAGO", "PAGA"].includes(faturaExistente.status)) {
+      const ativada = await supabase.from("faturas").update({ status: Number(faturaExistente.valor_total_unificado ?? faturaExistente.valor_total ?? 0) === 0 ? "PAGO" : "ABERTA" }).eq("id", faturaExistente.id).select().single();
       if (ativada.error) throw ativada.error;
       return { contrato, faturaEncerramento: ativada.data };
     }
@@ -777,7 +779,7 @@ export async function cancelarContratoService(id: string) {
     throw new Error("O contrato não está ativo para cancelamento.");
   }
   const [{ data: cliente, error: erroCliente }, { data: unidade, error: erroUnidade }] = await Promise.all([
-    supabase.from("clientes").select("id, modalidade_faturamento, desconto_percentual, usina_id").eq("id", contrato.cliente_id).single(),
+    supabase.from("clientes").select("id, empresa_id, modalidade_faturamento, desconto_percentual, usina_id").eq("id", contrato.cliente_id).single(),
     contrato.unidade_consumidora_id
       ? supabase.from("unidades_consumidoras").select("id, numero, modalidade_faturamento, desconto_percentual, usina_id").eq("id", contrato.unidade_consumidora_id).maybeSingle()
       : Promise.resolve({ data: null, error: null }),
@@ -820,11 +822,18 @@ export async function cancelarContratoService(id: string) {
 
     const saldo = Math.max(0, Number(credito?.saldo_atual ?? credito?.saldo ?? 0));
     if (!faturaEncerramento && saldo > 0 && ultima) {
+      const unidadeId = contrato.unidade_consumidora_id ?? ultima.unidade_consumidora_id;
+      if (!unidadeId || !cliente.empresa_id) throw new Error('Identifique a UC antes de conferir os créditos do encerramento.');
+      const creditosPagos = await consultarCreditosPagos(cliente.empresa_id, unidadeId, ultima.numero_instalacao ?? unidade?.numero, cliente.id, saldo);
+      const saldoCobravel = creditosPagos.energia_cobravel_kwh;
       const tarifa = Number(ultima.tarifa_cheia ?? 0);
       const desconto = Number(unidade?.desconto_percentual ?? contrato.desconto ?? cliente.desconto_percentual ?? ultima.desconto_percentual ?? 0);
-      const valor = saldo * tarifa * (1 - desconto / 100);
+      const valor = saldoCobravel * tarifa * (1 - desconto / 100);
       const referencia = `ENCERRAMENTO-${new Date().toISOString().slice(0, 7).replace("-", "/")}`;
-      const { data, error } = await supabase.from("faturas").insert({ cliente_id: cliente.id, usina_id: ultima.usina_id ?? unidade?.usina_id ?? cliente.usina_id, unidade_consumidora_id: contrato.unidade_consumidora_id ?? ultima.unidade_consumidora_id ?? null, contrato_encerramento_id: id, numero_instalacao: ultima.numero_instalacao ?? unidade?.numero, referencia, vencimento: new Date().toISOString().slice(0, 10), consumo: saldo, consumo_kwh: saldo, energia_compensada: saldo, tarifa_cheia: tarifa, desconto_percentual: desconto, desconto_contratado_percentual: desconto, modalidade_faturamento: "COMPENSACAO", base_calculo_kwh: saldo, tarifa_andrade: tarifa * (1 - desconto / 100), valor_energia_cheia: saldo * tarifa, valor_andrade: valor, valor_usina: valor, valor_cemig: 0, valor_total_unificado: valor, valor_total: valor, economia_real: saldo * tarifa - valor, distribuidora: ultima.distribuidora, status: "RASCUNHO" }).select().single();
+      let data: any, error: any;
+      try {
+        data = await inserirFatura({ empresa_id: cliente.empresa_id, dados_extraidos: { creditos_pre_pagos: creditosPagos }, saldo_anterior: saldo, saldo_atual: 0, cliente_id: cliente.id, usina_id: ultima.usina_id ?? unidade?.usina_id ?? cliente.usina_id, unidade_consumidora_id: unidadeId, contrato_encerramento_id: id, numero_instalacao: ultima.numero_instalacao ?? unidade?.numero, referencia, vencimento: new Date().toISOString().slice(0, 10), consumo: saldo, consumo_kwh: saldo, energia_compensada: saldo, tarifa_cheia: tarifa, desconto_percentual: desconto, desconto_contratado_percentual: desconto, modalidade_faturamento: "COMPENSACAO", base_calculo_kwh: saldoCobravel, tarifa_andrade: tarifa * (1 - desconto / 100), valor_energia_cheia: saldoCobravel * tarifa, valor_andrade: valor, valor_usina: valor, valor_cemig: 0, valor_total_unificado: valor, valor_total: valor, economia_real: saldoCobravel * tarifa - valor, distribuidora: ultima.distribuidora, status: "RASCUNHO" });
+      } catch (erro) { error = erro; }
       if (error?.code === "23505") {
         const recuperada = await supabase.from("faturas").select("*").eq("contrato_encerramento_id", id).single();
         if (recuperada.error) throw recuperada.error;
@@ -834,8 +843,8 @@ export async function cancelarContratoService(id: string) {
     }
   }
   const contratoAtualizado = await atualizarContrato(id, { status: "CANCELADO" });
-  if (faturaEncerramento && faturaEncerramento.status !== "ABERTA") {
-    const ativada = await supabase.from("faturas").update({ status: "ABERTA" }).eq("id", faturaEncerramento.id).select().single();
+  if (faturaEncerramento && !["ABERTA", "PAGO", "PAGA"].includes(faturaEncerramento.status)) {
+    const ativada = await supabase.from("faturas").update({ status: Number(faturaEncerramento.valor_total_unificado ?? faturaEncerramento.valor_total ?? 0) === 0 ? "PAGO" : "ABERTA" }).eq("id", faturaEncerramento.id).select().single();
     if (ativada.error) throw ativada.error;
     faturaEncerramento = ativada.data;
   }

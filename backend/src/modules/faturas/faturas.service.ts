@@ -184,7 +184,7 @@ export async function confirmarFaturaRascunho(id: string, empresaId?: string) {
 
   const { data: fatura, error } = await supabase
     .from("faturas")
-    .update({ status: "ABERTA" })
+    .update({ status: Number(existente.valor_total_unificado ?? existente.valor_total ?? 0) === 0 ? 'PAGO' : 'ABERTA' })
     .eq("id", id)
     .eq("empresa_id", empresaId)
     .eq("status", "RASCUNHO")
@@ -205,13 +205,13 @@ export async function confirmarFaturaRascunho(id: string, empresaId?: string) {
     });
   }
 
-  await criarCobranca({
+  if (Number(fatura.valor_total_unificado ?? fatura.valor_total ?? 0) > 0) await criarCobranca({
     clienteId: fatura.cliente_id,
     faturaId: fatura.id,
     valor: Number(fatura.valor_total_unificado ?? fatura.valor_total ?? 0),
     vencimento: fatura.vencimento,
   });
-  await tentarCriarCobrancaAsaas(fatura.id, empresaId);
+  if (Number(fatura.valor_total_unificado ?? fatura.valor_total ?? 0) > 0) await tentarCriarCobrancaAsaas(fatura.id, empresaId);
   const atualizada = await buscarFaturaPorId(fatura.id);
   const documentada = await regenerarDocumentosGeradosDaFatura(atualizada ?? fatura);
   await enfileirarNotificacoesDaFatura(documentada);

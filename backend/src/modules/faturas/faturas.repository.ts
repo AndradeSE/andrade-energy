@@ -73,6 +73,11 @@ export async function buscarFatura(
 export async function inserirFatura(
   fatura: any
 ) {
+  if (fatura.dados_extraidos?.creditos_pre_pagos) {
+    const { data, error } = await supabase.rpc('inserir_fatura_creditos_pagos', { p_fatura: fatura });
+    if (error) throw Object.assign(new Error(`Fatura não emitida: ${error.message}`), { code: error.code });
+    return data;
+  }
   let { data, error } = await supabase
     .from("faturas")
     .insert(fatura)

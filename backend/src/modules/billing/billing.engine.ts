@@ -4,6 +4,8 @@ export type BillingInput = {
   modalidade: ModalidadeFaturamento;
   energiaInjetada: number;
   energiaCompensada: number;
+  /** Energia compensada cujo pagamento na modalidade injeção foi comprovado. */
+  creditosPagosUtilizadosKwh?: number;
   tarifaCheia: number;
   descontoPercentual: number;
   valorCemig: number;
@@ -87,6 +89,11 @@ export function calcularDiferencaFioB(
 export function calcularFaturaUnificada(input: BillingInput): BillingOutput {
   validarNumero("Energia injetada", input.energiaInjetada);
   validarNumero("Energia compensada", input.energiaCompensada);
+  const creditosPagos = input.creditosPagosUtilizadosKwh ?? 0;
+  validarNumero("Créditos já pagos", creditosPagos);
+  if (creditosPagos > input.energiaCompensada || (input.modalidade !== 'COMPENSACAO' && creditosPagos > 0)) {
+    throw new Error('Abatimento de créditos pagos inválido para esta modalidade.');
+  }
   validarNumero("Tarifa cheia", input.tarifaCheia);
   validarNumero("Valor CEMIG", input.valorCemig);
 
@@ -108,7 +115,7 @@ export function calcularFaturaUnificada(input: BillingInput): BillingOutput {
   const baseCalculoKwh =
     input.modalidade === "INJECAO"
       ? input.energiaInjetada
-      : input.energiaCompensada;
+      : Math.max(0, input.energiaCompensada - creditosPagos);
   const fatorDesconto = input.descontoPercentual / 100;
   const tarifaAndrade = input.tarifaCheia * (1 - fatorDesconto);
   const valorEnergiaCheia = baseCalculoKwh * input.tarifaCheia;
