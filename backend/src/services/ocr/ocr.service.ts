@@ -32,13 +32,13 @@ async function extrairTextoPdfComSenha(buffer: Buffer, senha: string) {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const pdfJs = require("pdf-parse/lib/pdf.js/v1.10.100/build/pdf.js") as {
     disableWorker?: boolean;
-    getDocument: (origem: { data: Buffer; password: string }) => Promise<PdfJsDocumento>;
+    getDocument: (origem: { data: Uint8Array; password: string }) => Promise<PdfJsDocumento>;
   };
 
   pdfJs.disableWorker = true;
   let documento: PdfJsDocumento | undefined;
   try {
-    documento = await pdfJs.getDocument({ data: buffer, password: senha });
+    documento = await pdfJs.getDocument({ data: new Uint8Array(buffer), password: senha });
     const paginas = await Promise.all(
       Array.from({ length: documento.numPages }, async (_, indice) => {
         const pagina = await documento!.getPage(indice + 1);
@@ -75,7 +75,9 @@ export async function extrairTextoDoBuffer(
 ): Promise<string> {
 
   try {
-    const pdf = await pdfParse(buffer);
+    // Legacy pdf.js can report bad xrefs for Node Buffers read asynchronously.
+    // Give it an owned plain byte array, including inside the isolated worker.
+    const pdf = await pdfParse(new Uint8Array(buffer) as unknown as Buffer);
     return pdf.text;
   } catch (erro: any) {
     const mensagem = String(erro?.message ?? "");
