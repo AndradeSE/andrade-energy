@@ -1,6 +1,7 @@
 import { normalizarPlanoContrato } from "../contratos/planoContrato.policy";
 import {notificarProducaoImportada} from './producaoNotificacao';
 import { configuracaoAutoleitura } from "../clientes/autoleituraConfig";
+import { conferirTransicaoParaCompensacao } from '../creditos/creditosPagos.service';
 import { cpfTitularPatch } from "./cpfTitularPatch";
 import { saldoCreditoInformado } from "./saldoAncora.policy";
 import { receitaAtualDaCompetencia } from "./receitaDashboard.policy";
@@ -430,7 +431,7 @@ export async function alocarUnidadeNaUsina(usinaId: string, input: any, empresaI
       .single(),
     supabase
       .from("unidades_consumidoras")
-      .select("id,usina_id,cliente_id,endereco,cpf_titular,percentual_repasse_disponibilidade,fatura_somente_andrade,plano_contrato,repassar_disponibilidade_gd1,repassar_disponibilidade_gd2,repassar_diferenca_fio_b_gd2,tipo_gd")
+      .select("id,usina_id,cliente_id,modalidade_faturamento,endereco,cpf_titular,percentual_repasse_disponibilidade,fatura_somente_andrade,plano_contrato,repassar_disponibilidade_gd1,repassar_disponibilidade_gd2,repassar_diferenca_fio_b_gd2,tipo_gd")
       .eq("numero", numero)
       .eq("empresa_id", empresaId)
       .maybeSingle(),
@@ -530,6 +531,9 @@ export async function alocarUnidadeNaUsina(usinaId: string, input: any, empresaI
   const enderecoDaFatura = String(input.endereco ?? "").trim();
   const enderecoDaUc = enderecoDaFatura || unidadeAnterior?.endereco || cliente.endereco || null;
   const usinaAnterior = unidadeAnterior?.usina_id ?? null;
+  if (unidadeAnterior?.modalidade_faturamento === 'INJECAO' && modalidade === 'COMPENSACAO') {
+    await conferirTransicaoParaCompensacao(empresaId, unidadeAnterior.id, numero, clienteId);
+  }
   const dadosUnidade = {
       ...configuracaoAutoleitura(input),
       empresa_id: empresaId,

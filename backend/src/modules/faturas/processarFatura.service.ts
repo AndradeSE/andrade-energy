@@ -19,6 +19,7 @@ import { supabase } from "../../config/supabase";
 import { calcularEnergiaInjetadaPelosSaldos } from "../billing/energiaInjetada";
 import { antecipacaoVencimentoDaUc, exigirContratoAssinadoDaUc } from "../contratos/contratoUc.service";
 import {conferirFaturamentoDaUc} from './inadimplenciaUc.service';
+import { consultarCreditosPagos } from '../creditos/creditosPagos.service';
 
 function converterDataBrasileiraParaIso(data: string): string {
   const correspondencia = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(data.trim());
@@ -84,6 +85,11 @@ const vencimentoEmissao = faturaExistente?.vencimento ?? vencimentoAndrade(
 );
 
 if (faturaExistente) {
+  // O demonstrativo já emitido é imutável: reimportar não pode liberar sua
+  // reserva de créditos nem apagar cobranças financeiras anteriores.
+  if (faturaExistente.dados_extraidos?.creditos_pre_pagos || ['PAGO','PAGA'].includes(faturaExistente.status)) {
+    return { jaProcessada: true, mensagem: 'Esta fatura já foi importada anteriormente.', fatura: faturaExistente };
+  }
 
   const semBaseDeCalculo = Number(faturaExistente.base_calculo_kwh ?? 0) === 0;
   const totalConvencionalSomadoEmDuplicidade =
@@ -269,8 +275,12 @@ if (!cliente.usina_id) {
     throw new Error("Modalidade de faturamento do cliente inválida.");
   }
 
+  const creditosPagos = modalidade === 'COMPENSACAO'
+    ? await consultarCreditosPagos(cliente.empresa_id, cliente.unidade_consumidora.id, dados.uc, cliente.id, energiaCompensadaFaturada, dados.referencia)
+    : null;
   const calculo = calcularFaturaUnificada({
     modalidade,
+    creditosPagosUtilizadosKwh: creditosPagos?.utilizado_kwh ?? 0,
     energiaInjetada: energiaInjetadaCalculada,
     energiaCompensada: baseCompensacaoCalculada,
     tarifaCheia,
@@ -302,6 +312,7 @@ vencimento = vencimentoEmissao;
 const fatura = await inserirFatura({
 
   empresa_id: cliente.empresa_id,
+  dados_extraidos: { ...dados, ...(creditosPagos ? { creditos_pre_pagos: creditosPagos } : {}) },
 
   cliente_id: cliente.id,
 
@@ -453,7 +464,7 @@ const fatura = await inserirFatura({
   distribuidora:
     dados.distribuidora,
 
-  status: opcoes.status ?? "ABERTA",
+  status: opcoes.status === 'RASCUNHO' ? 'RASCUNHO' : calculo.valorTotalUnificado === 0 ? 'PAGO' : 'ABERTA',
 
 });
 
@@ -470,7 +481,7 @@ const fatura = await inserirFatura({
   });
 }
 
-  if (opcoes.criarCobranca ?? true) await criarCobranca({
+  if ((opcoes.criarCobranca ?? true) && calculo.valorTotalUnificado > 0) await criarCobranca({
 
     clienteId: cliente.id,
 
@@ -482,7 +493,7 @@ const fatura = await inserirFatura({
 
   });
 
-  if ((opcoes.criarCobranca ?? true) && String(opcoes.status ?? "ABERTA").toUpperCase() !== "RASCUNHO") {
+  if ((opcoes.criarCobranca ?? true) && calculo.valorTotalUnificado > 0 && String(opcoes.status ?? "ABERTA").toUpperCase() !== "RASCUNHO") {
     await tentarCriarCobrancaAsaas(fatura.id);
   }
 

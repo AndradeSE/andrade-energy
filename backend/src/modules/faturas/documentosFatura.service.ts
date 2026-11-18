@@ -16,7 +16,7 @@ import { identificarTipoGdDocumento, rotuloTipoGdDocumento } from "./tipoGdDocum
 
 const BUCKET = "faturas";
 export const VERSAO_LAYOUT_FATURA = "layout-20261016-v18";
-export const VERSAO_RELATORIO_CALCULO = "relatorio-calculo-20261016-v9";
+export const VERSAO_RELATORIO_CALCULO = "relatorio-calculo-20261118-v10";
 const VERDE = "#107C5C";
 const VERDE_ESCURO = "#07533D";
 const VERDE_CLARO = "#E8F6F0";
@@ -729,7 +729,7 @@ export async function gerarPdfRelatorioCalculo(fatura: any) {
     cartao(48, 574, 498, 116, "#FFF9E9");
     const observacaoModalidade = modalidade === "INJECAO"
       ? "Na modalidade por injeção, toda a energia enviada pela usina e destinada à UC compõe a base faturada do período."
-      : "Na modalidade por compensação, somente a energia compensada no período é faturada. O saldo acumulado permanece registrado e só é cobrado no encerramento do contrato, conforme a configuração vigente.";
+      : "Na modalidade por compensação, a energia já quitada por injeção é abatida da base faturada. O saldo permanece registrado; no encerramento, somente créditos ainda não pagos podem ser cobrados.";
     pdf.fillColor(TEXTO).font("Helvetica").fontSize(9).text(observacaoModalidade, 64, 594, { width: 466, lineGap: 4 });
     pdf.fillColor(TEXTO).font("Helvetica").fontSize(9).text(somenteAndrade ? "Esta UC usa documentos separados: este total representa a cobrança Andrade; a conta da concessionária continua sendo paga à parte." : "Esta UC usa fatura unificada: o total reúne a parcela da concessionária repassada ao cliente e a cobrança Andrade.", 64, 641, { width: 466, lineGap: 4 });
     pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(7).text(`Documento gerado automaticamente em ${new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}. Valores monetários arredondados para centavos; prevalecem os registros do faturamento.`, 48, 744, { width: 498, align: "center", lineGap: 2 });
@@ -775,6 +775,18 @@ export async function gerarPdfRelatorioCalculo(fatura: any) {
     pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(8).text(compensadaInformada && modalidade === "INJECAO" && compensada > energiaBase
       ? "A compensação informada supera a injeção faturada. A diferença não é adicionada a esta cobrança; pode envolver créditos anteriores. O saldo acumulado não representa uma nova parcela a pagar."
       : "O saldo acumulado é o estoque de créditos disponível, que pode incluir períodos anteriores. Ele não é somado novamente ao valor desta fatura. As parcelas monetárias são arredondadas para fechar o total da energia em centavos.", 48, 700, { width: 498, lineGap: 3 });
+    const prePago = fatura.dados_extraidos?.creditos_pre_pagos;
+    if (prePago && Number(prePago.utilizado_kwh) > 0) {
+      pdf.addPage({ size: 'A4', margins: { top: 48, right: 48, bottom: 48, left: 48 } });
+      pdf.fillColor(VERDE_ESCURO).font('Helvetica-Bold').fontSize(18).text('Créditos de energia já pagos');
+      pdf.moveDown().fillColor(TEXTO).font('Helvetica').fontSize(11)
+        .text(`UC ${fatura.numero_instalacao} · ${fatura.referencia}`)
+        .moveDown().text(`Saldo já pago antes desta fatura: ${energia(prePago.saldo_anterior_kwh)}`)
+        .moveDown().text(`Utilizado sem nova cobrança: ${energia(prePago.utilizado_kwh)}`)
+        .moveDown().text(`Energia que compõe a nova cobrança: ${energia(prePago.energia_cobravel_kwh)}`)
+        .moveDown().text(`Saldo já pago ainda disponível: ${energia(prePago.saldo_restante_kwh)}`)
+        .moveDown().text('O abatimento considera pagamentos de energia por injeção registrados para esta UC. A conta original da concessionária e os encargos aplicáveis continuam separados do saldo de energia já quitado.');
+    }
     pdf.end();
   });
 }
