@@ -10,11 +10,13 @@ async function main() {
     create table faturas(id uuid primary key default gen_random_uuid(),empresa_id uuid,cliente_id uuid,
       unidade_consumidora_id uuid,numero_instalacao text,referencia text,modalidade_faturamento text,
       status text default 'ABERTA',base_calculo_kwh numeric,energia_compensada numeric,saldo_atual numeric,
-      dados_extraidos jsonb,valor_total numeric);`);
+      dados_extraidos jsonb,valor_total numeric);
+    create table asaas_cobrancas(id uuid primary key default gen_random_uuid(),fatura_id uuid,empresa_id uuid,status text);`);
   // PGlite é single-connection; a trava real é fornecida pelo PostgreSQL em
   // produção. Aqui validamos o SQL, isolamento e a conferência do token.
   await db.exec(`create function public.pg_advisory_xact_lock(bigint) returns void language sql as 'select';`);
   await db.exec(readFileSync(path.resolve(__dirname,'../../supabase/migrations/20261118133723_creditos_pagos_modalidade.sql'),'utf8'));
+  await db.exec(readFileSync(path.resolve(__dirname,'../../supabase/migrations/20261118141343_creditos_pagos_estornos.sql'),'utf8'));
   const empresa='11111111-1111-4111-8111-111111111111', uc='22222222-2222-4222-8222-222222222222', cliente='33333333-3333-4333-8333-333333333333';
   await db.query('insert into unidades_consumidoras values ($1,$2,$3,$4)',[uc,empresa,cliente,'99999101127']);
   await db.query(`insert into faturas(empresa_id,cliente_id,unidade_consumidora_id,numero_instalacao,referencia,modalidade_faturamento,status,base_calculo_kwh,energia_compensada,saldo_atual)
@@ -33,6 +35,14 @@ async function main() {
   const antes=await historico();
   await db.query(`update faturas set status='ABERTA' where modalidade_faturamento='INJECAO'`);
   const depois=await historico(); assert.notEqual(antes.versao,depois.versao);
+  await db.query("update faturas set status='PAGO' where modalidade_faturamento='INJECAO'");
+  await db.query("insert into asaas_cobrancas(fatura_id,empresa_id,status) select id,empresa_id,'RECEIVED' from faturas where modalidade_faturamento='INJECAO'");
+  const recebido=await historico();
+  assert.equal(recebido.faturas.find(f=>f.modalidade_faturamento==='INJECAO').status,'PAGO');
+  await db.query("update asaas_cobrancas set status='REFUNDED'");
+  const estornado=await historico();
+  assert.notEqual(recebido.versao,estornado.versao);
+  assert.equal(estornado.faturas.find(f=>f.modalidade_faturamento==='INJECAO').status,'PAGAMENTO_PENDENTE_CONCILIACAO');
   const permissoes=await db.query(`select has_function_privilege('anon','public.historico_creditos_pagos_uc(uuid,uuid,text,uuid)','execute') a,
     has_function_privilege('authenticated','public.inserir_fatura_creditos_pagos(jsonb)','execute') b`);
   assert.deepEqual(permissoes.rows[0],{a:false,b:false});

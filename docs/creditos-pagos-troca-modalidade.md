@@ -13,16 +13,24 @@
 
 ## Banco e concorrência
 
-Aplicar `supabase/migrations/20261118133723_creditos_pagos_modalidade.sql` junto do backend. São funções invocadoras, acessíveis somente a `service_role`; nenhuma permissão pública de faturamento foi ampliada. A emissão usa trava transacional por empresa/UC e confere uma impressão do histórico imediatamente antes de inserir. Se houver outra emissão ou mudança de pagamento, o cálculo antigo é rejeitado.
+Aplicar `supabase/migrations/20261118133723_creditos_pagos_modalidade.sql` e `20261118141343_creditos_pagos_estornos.sql` junto do backend. São funções invocadoras, acessíveis somente a `service_role`; nenhuma permissão pública de faturamento foi ampliada. A emissão usa trava transacional por empresa/UC e confere uma impressão do histórico imediatamente antes de inserir. Se houver outra emissão ou mudança de pagamento, o cálculo antigo é rejeitado.
 
 Não aplicar isoladamente em produção: o backend antigo não fornece o demonstrativo exigido pelo novo gatilho para UCs com histórico de injeção. Não publicar APK/OTA para esta alteração de backend.
 
 ## Validação local
 
 - TypeScript, suíte geral do backend e `npm run test:creditos-pagos`.
-- `backend/scripts/test-creditos-pagos-sql.cjs`: SQL real em PostgreSQL embarcado, fixtures isoladas; verifica defaults, inserção, token obsoleto, pagamento alterado, isolamento e permissões. A trava nativa de transações é substituída por stub nesse teste single-connection, portanto concorrência real deve ser conferida na homologação antes de produção.
+- `backend/scripts/test-creditos-pagos-sql.cjs`: SQL real em PostgreSQL embarcado, fixtures isoladas; verifica defaults, inserção, token obsoleto, pagamento alterado, isolamento e permissões. A trava nativa de transações é substituída por stub nesse teste single-connection. A concorrência real foi depois validada no PostgreSQL de homologação: emissão duplicada e estorno simultâneo foram bloqueados.
 - PDF real gerado, texto extraído e página do abatimento renderizada/conferida visualmente.
 
 ## Estado
 
-Implementação e testes locais. Migração e backend ainda não publicados. Nenhum saldo, pagamento, contrato ou fatura real foi alterado. Pagamentos externos ausentes no histórico precisam ser conciliados; não presumimos que todo crédito acumulado já foi quitado.
+Publicado em homologação e produção em 18/11/2026. Revisões: Preview 3d129f8b; produção 9c5413b2. Migrações aplicadas nos bancos principais e nas respectivas reservas Neon. Nenhum saldo, pagamento, contrato ou fatura real foi reprocessado manualmente. Pagamentos externos ausentes no histórico precisam ser conciliados; não presumimos que todo crédito acumulado já foi quitado.
+
+## Confirmação final
+
+- Produção online em 9c5413b2ff6a3e27a202f0f34aadcc9aeb57eb24, deploy dep-dbur3i8m7kps73d8ccc0 live. Preview online em 3d129f8b0b3c1078f3d2cd8a6e0cad82602f7a79.
+- Segunda migração confere também a cobrança Asaas: estorno ou recebimento desfeito não pode continuar autorizando estoque quitado só porque a fatura mantém status PAGO. A versão do histórico inclui os estados das cobranças, com trava compartilhada entre pagamentos e emissão.
+- Teste PostgreSQL real: estorno fictício simultâneo rejeitou uma emissão calculada antes da alteração; status efetivo virou PAGAMENTO_PENDENTE_CONCILIACAO. Registro Asaas fictício de valor zero foi excluído ao fim. Nenhuma chamada ao processador financeiro foi executada.
+- Teste da API de exclusão com dependências simuladas confirmou recusa antes de consultar ou cancelar cobranças externas.
+- As migrações SQL adicionais não alteram o código da API já publicado; commit de registro usa skip render para não disparar publicação desnecessária. Não há necessidade de nova build mobile para esta regra de faturamento.
