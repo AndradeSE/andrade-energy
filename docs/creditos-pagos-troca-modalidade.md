@@ -7,7 +7,7 @@
 - O abatimento é em kWh, preservando o pagamento original mesmo que tarifa ou desconto mudem depois. O estoque não migra para outra UC/cliente/empresa.
 - Cada nova fatura por compensação preserva os kWh compensados e registra em `dados_extraidos.creditos_pre_pagos` o saldo anterior, utilizado, restante, base cobrável e versão do histórico.
 - A energia já quitada sai da base da nova cobrança. Concessionária e encargos permanecem conforme configuração existente. Não há boleto nem cobrança local de valor zero.
-- A reserva inclui rascunhos para não reutilizar o mesmo saldo. Reimportação preserva faturas quitadas e demonstrativos já emitidos. Cancelamentos liberam reservas; não há estorno/reembolso automático de cobranças antigas.
+- A reserva inclui rascunhos para não reutilizar o mesmo saldo. Reimportação preserva faturas quitadas e demonstrativos já emitidos. Faturas que consumiram saldo pago exigem conciliação para excluir, cancelar ou alterar a base; o sistema não libera esse estoque silenciosamente. Não há estorno/reembolso automático de cobranças antigas.
 - O encerramento desconta os créditos já pagos antes de cobrar o saldo remanescente.
 - O relatório de cálculo apresenta uma página com o abatimento e saldo remanescente.
 

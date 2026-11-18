@@ -28,6 +28,17 @@ declare atual jsonb; registro public.faturas;
 begin
   if tg_op='DELETE' then registro:=old; else registro:=new; end if;
   perform pg_advisory_xact_lock(hashtextextended(registro.empresa_id::text || ':' || registro.numero_instalacao,0));
+  if tg_op in ('UPDATE','DELETE') and coalesce((old.dados_extraidos->'creditos_pre_pagos'->>'utilizado_kwh')::numeric,0)>0 then
+    if tg_op='DELETE' then
+      raise exception 'Esta fatura consumiu créditos já pagos. Concilie o saldo antes de excluir.';
+    end if;
+    if new.status in ('CANCELADA','CANCELADO','ESTORNADA','ESTORNADO')
+      or (new.dados_extraidos->'creditos_pre_pagos') is distinct from (old.dados_extraidos->'creditos_pre_pagos')
+      or new.energia_compensada is distinct from old.energia_compensada
+      or new.base_calculo_kwh is distinct from old.base_calculo_kwh then
+      raise exception 'Esta fatura consumiu créditos já pagos. Concilie o saldo antes de cancelar ou alterar a base.';
+    end if;
+  end if;
   if tg_op='INSERT' and registro.modalidade_faturamento='COMPENSACAO' and registro.unidade_consumidora_id is not null then
     atual:=public.historico_creditos_pagos_uc(registro.empresa_id,registro.unidade_consumidora_id,registro.numero_instalacao,registro.cliente_id);
     if registro.dados_extraidos->'creditos_pre_pagos' is not null then
