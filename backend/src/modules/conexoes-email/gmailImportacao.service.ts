@@ -1,6 +1,6 @@
 import { origemEmailPermitida } from "../recebimento-faturas/recebimentoOrigem.policy";
 import {priorizarConexoesGmail} from './gmailConexao.policy';
-import { gmailDemoMessageAllowed, DEMO_FILENAME } from './gmailDemo.policy';
+import { gmailDemoEnabled, gmailDemoMessageAllowed, DEMO_FILENAME, DEMO_RECIPIENT } from './gmailDemo.policy';
 import { createHash } from "node:crypto";
 import { supabase } from "../../config/supabase";
 import { obterTokenLeituraGmail } from "./conexoesEmail.service";
@@ -47,13 +47,23 @@ export async function enfileirarFaturasGmail(deps: DependenciasGmail = {
         // Recupera contas recentes que chegaram antes da correção, sem ler toda a caixa.
         const desde = new Date(Date.now() - 30 * 24 * 60 * 60_000);
         etapa = "CONSULTAR_MENSAGENS";
-        for (const mensagem of await deps.listar(token, desde, conexao.email_conectado)) {
+        const mensagens = await deps.listar(token, desde, conexao.email_conectado);
+        const diagnosticoDemo = process.env.GMAIL_OAUTH_DEMO_ENABLED === 'true' && conexao.email_conectado === DEMO_RECIPIENT;
+        if (diagnosticoDemo) console.info('Conferencia Gmail demonstracao', {
+          habilitado: gmailDemoEnabled(conexao.email_conectado), mensagens: mensagens.length,
+          bancoPreview: process.env.SUPABASE_URL === 'https://qqhcjieymypowunkixmk.supabase.co',
+          hostPreview: process.env.RENDER_EXTERNAL_URL === 'https://andrade-energy-api-homologacao.onrender.com',
+        });
+        for (const mensagem of mensagens) {
           const dados = await deps.consultar<{ payload?: ParteGmail & { headers?: Array<{ name: string; value: string }> }; internalDate?: string }>(token,
             `messages/${encodeURIComponent(mensagem.id)}?format=full`);
           const headers = dados.payload?.headers ?? [];
           const remetente = headers.find(h => h.name.toLowerCase() === "from")?.value ?? "";
           const assunto = headers.find(h => h.name.toLowerCase() === 'subject')?.value ?? '';
           const demonstracao = gmailDemoMessageAllowed(conexao.email_conectado, remetente, assunto);
+          if (diagnosticoDemo) console.info('Validacao Gmail demonstracao', { permitida: demonstracao,
+            anexos: anexosPdfGmail(dados.payload).length,
+            arquivoEsperado: anexosPdfGmail(dados.payload).some(parte => parte.filename === DEMO_FILENAME) });
           if (!/(?:^|<)fatura@cemig\.com\.br(?:>|$)/i.test(remetente.trim()) && !demonstracao) continue;
           for (const parte of anexosPdfGmail(dados.payload)) {
             if (demonstracao && parte.filename !== DEMO_FILENAME) continue;
