@@ -25,10 +25,11 @@ test('consumo posterior na própria injeção reduz estoque e saldo Cemig limita
   assert.equal(saldoCreditosPagos([injecao,{...injecao,id:'i2',referencia:'FEV/2026',status:'ABERTA',energia_compensada:150,saldo_atual:350}]),350);
   assert.equal(saldoCreditosPagos([{...injecao,saldo_atual:100}]),100);
 });
-test('reserva do rascunho impede uso duplicado e cancelamento libera a reserva', () => {
+test('reserva do rascunho impede uso duplicado e cancelamento exige conciliação', () => {
   const r={...injecao,id:'r',referencia:'FEV/2026',modalidade_faturamento:'COMPENSACAO',status:'RASCUNHO',energia_compensada:200,saldo_atual:300,dados_extraidos:{creditos_pre_pagos:{utilizado_kwh:200}}};
   assert.equal(saldoCreditosPagos([injecao,r]),300);
-  assert.equal(saldoCreditosPagos([injecao,{...r,status:'CANCELADA'}]),500);
+  assert.throws(()=>saldoCreditosPagos([injecao,{...r,status:'CANCELADA'}]),/cancelada sem substituição/);
+  assert.equal(saldoCreditosPagos([injecao,{...r,id:'cancelada',status:'CANCELADA'}, {...r,status:'ABERTA'}]),300);
 });
 test('rejeita histórico incompleto, duplicado, fora de ordem e valores inválidos', () => {
   assert.throws(()=>saldoCreditosPagos([{...injecao,saldo_atual:null}]));

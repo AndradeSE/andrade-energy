@@ -27,6 +27,10 @@ export function saldoCreditosPagos(historico: Historico[], referencia?: string):
   const ativos = historico.filter(f => !['CANCELADA','CANCELADO','ESTORNADA','ESTORNADO'].includes(f.status)
     && (f.status !== 'RASCUNHO' || f.dados_extraidos?.creditos_pre_pagos));
   if (!ativos.some(f => f.modalidade_faturamento === 'INJECAO')) return 0;
+  if (historico.some(f => ['CANCELADA','CANCELADO','ESTORNADA','ESTORNADO'].includes(f.status)
+    && Number(f.energia_compensada) > 0 && !ativos.some(a => a.referencia === f.referencia))) {
+    throw new Error('Há consumo em fatura cancelada sem substituição. Concilie o histórico da UC antes de utilizar créditos pagos.');
+  }
   const ordenados = ativos.map(f => ({ f, ordem: ordemCompetencia(f.referencia) })).sort((a,b) => a.ordem-b.ordem);
   let saldo = 0;
   let anterior = -1;

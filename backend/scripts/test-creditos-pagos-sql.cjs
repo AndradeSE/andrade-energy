@@ -25,6 +25,8 @@ async function main() {
     dados_extraidos:{creditos_pre_pagos:{versao:inicial.versao,saldo_anterior_kwh:500,utilizado_kwh:200,saldo_restante_kwh:300,energia_cobravel_kwh:0}}};
   const nova=(await db.query('select inserir_fatura_creditos_pagos($1) as f',[JSON.stringify(payload)])).rows[0].f;
   assert.ok(nova.id);assert.equal(nova.status,'ABERTA');assert.equal(nova.base_calculo_kwh,0);
+  await assert.rejects(db.query('delete from faturas where id=$1',[nova.id]),/Concilie o saldo/);
+  await assert.rejects(db.query("update faturas set status='CANCELADA' where id=$1",[nova.id]),/Concilie o saldo/);
   await assert.rejects(db.query('select inserir_fatura_creditos_pagos($1)',[JSON.stringify({...payload,referencia:'MAR/2026'})]),/histórico.*mudou/);
   await assert.rejects(db.query('select historico_creditos_pagos_uc($1,$2,$3,$4)',[empresa,uc,'99999101127','44444444-4444-4444-8444-444444444444']),/não pertence/);
   await assert.rejects(db.query(`insert into faturas(empresa_id,cliente_id,unidade_consumidora_id,numero_instalacao,referencia,modalidade_faturamento) values($1,$2,$3,'99999101127','MAR/2026','COMPENSACAO')`,[empresa,cliente,uc]),/créditos de injeção/);
