@@ -2,6 +2,7 @@ import {randomUUID} from "node:crypto";
 import type {RequestHandler} from "express";
 import {supabase} from "./supabase";
 import {continueReservedRequest} from "./contingencyRequestLifecycle";
+import {isStaticOAuthReturn} from "./contingencyPublicReturn";
 import {contingencyExecutor,contingencyCommit} from './contingencyExecutor';
 
 export const contingencyRequestGuard: RequestHandler = async(req,res,next)=>{
@@ -9,6 +10,7 @@ export const contingencyRequestGuard: RequestHandler = async(req,res,next)=>{
   if(!req.path.startsWith("/api/") || /^\/api\/contingencia(\/|$)/.test(req.path) ||
     /^\/api\/auth\/(login|logout|session)\/?$/.test(req.path)) return next();
   if(req.method==='OPTIONS') return next();
+  if(isStaticOAuthReturn(req.method,req.path)) return next();
   // Some nominal reads refresh provider state or repair stored documents.
   // Route all API work through the owner rather than assume GET is read-only.
   const executor=contingencyExecutor(process.env);
