@@ -10,11 +10,11 @@ test("lembrete entra cinco dias antes, recupera dias perdidos e inclui o vencime
   assert.equal(diasParaLembreteFatura(f, "2026-10-17"), null);
 });
 
-test("cobrança vencida recupera a etapa atual sem disparar etapas passadas", () => {
+test("cobrança vencida usa o dia local para permitir um aviso por dia", () => {
   const f = { status: "ABERTA", vencimento: "2026-10-01" };
   assert.equal(avisoCobrancaVencida(f, "2026-10-01"), null);
-  for (const [hoje, dias, etapa] of [["2026-10-02", 1, 1], ["2026-10-07", 6, 1], ["2026-10-08", 7, 7], ["2026-10-17", 16, 15], ["2026-10-31", 30, 30], ["2026-11-30", 60, 60]] as const)
-    assert.deepEqual(avisoCobrancaVencida(f, hoje), { dias, etapa });
+  for (const [hoje, dias] of [["2026-10-02", 1], ["2026-10-07", 6], ["2026-10-08", 7], ["2026-10-17", 16], ["2026-10-31", 30], ["2026-11-30", 60]] as const)
+    assert.deepEqual(avisoCobrancaVencida(f, hoje), { dias, diaDoAviso: hoje });
 });
 
 test("cobrança vencida não cobra paga, cancelada, rascunho ou recebida no provedor", () => {

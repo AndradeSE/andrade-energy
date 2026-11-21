@@ -28,7 +28,7 @@ export async function avisarFaturasProximasDoVencimento() {
           .eq("empresa_id", fatura.empresa_id).eq("cliente_id", fatura.cliente_id).eq("papel", "LEITURA").eq("ativo", true);
         if (erroAcessos) throw erroAcessos;
         for (const acesso of acessos ?? []) {
-          const chave = vencida ? `fatura-atraso:${fatura.id}:${fatura.vencimento}:${vencida.etapa}:${acesso.usuario_id}` : `fatura-vencimento:${fatura.id}:${fatura.vencimento}:${acesso.usuario_id}`;
+          const chave = vencida ? `fatura-atraso:${fatura.id}:${fatura.vencimento}:${vencida.diaDoAviso}:${acesso.usuario_id}` : `fatura-vencimento:${fatura.id}:${fatura.vencimento}:${acesso.usuario_id}`;
           const dataBr = String(fatura.vencimento).slice(0, 10).split("-").reverse().join("/");
           const valor = Number(fatura.valor_total_unificado ?? fatura.valor_total);
           const valorTexto = Number.isFinite(valor) ? `, no valor de ${valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}` : "";
