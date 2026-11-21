@@ -2,7 +2,8 @@
 export const DEMO_COMPANY_ID = '2632123b-45b0-4cae-8c34-7dadbb982c59';
 export const DEMO_SENDER = 'andradeenergyltda@gmail.com';
 export const DEMO_RECIPIENT = 'viniciusduarteandrade87@gmail.com';
-export const DEMO_SUBJECT = '[SIMULACAO HOMOLOGACAO] Fatura ficticia OAuth - UC 99999112121';
+export const DEMO_UNIT_NUMBER = "99999112121";
+export const DEMO_SUBJECT = `[SIMULACAO HOMOLOGACAO] Fatura ficticia OAuth - UC ${DEMO_UNIT_NUMBER}`;
 export const DEMO_FILENAME = 'fatura-ficticia-oauth-20261121.pdf';
 export function gmailDemoEnabled(recipient: string, env = process.env, now = Date.now()): boolean {
   return env.GMAIL_OAUTH_DEMO_ENABLED === 'true'

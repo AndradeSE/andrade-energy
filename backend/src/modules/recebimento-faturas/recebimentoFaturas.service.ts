@@ -22,6 +22,7 @@ import { registrarProducaoDaFaturaGeradora } from "../usinas/usinas.service";
 import { buscarFatura } from "../faturas/faturas.repository";
 import { obterTokenLeituraGmail } from "../conexoes-email/conexoesEmail.service";
 import { baixarAnexoGmail } from "../conexoes-email/gmailLeitura.client";
+import { DEMO_COMPANY_ID, DEMO_FILENAME, DEMO_UNIT_NUMBER, gmailDemoMessageAllowed } from "../conexoes-email/gmailDemo.policy";
 import { enfileirarFaturasGmail } from "../conexoes-email/gmailImportacao.service";
 import { unidadesNoEscopoRecebimento } from "./recebimentoEscopo.policy";
 const PROVEDOR = "RESEND";
@@ -832,11 +833,21 @@ async function processarRegistro(registro: any) {
         return;
       }
       etapa("FATURAR_AUTOMATICAMENTE");
-      try {
-        await conferirFaturamentoDaUc(unidade.empresa_id,{id:unidade.id,numero:dados.uc,cliente_id:unidade.cliente_id});
-      }catch(error){
-        if(!(error instanceof FaturamentoUcSuspenso))throw error;
-        // Continua recebendo dados energéticos sem emitir uma nova cobrança.
+      const demonstracao = assumido.provedor === "GMAIL"
+        && unidade.empresa_id === DEMO_COMPANY_ID
+        && String(dados.uc) === DEMO_UNIT_NUMBER
+        && anexo.filename === DEMO_FILENAME
+        && gmailDemoMessageAllowed(assumido.destinatario, assumido.remetente, assumido.assunto);
+      let arquivarSemCobranca = demonstracao;
+      if (!demonstracao) {
+        try {
+          await conferirFaturamentoDaUc(unidade.empresa_id, {id:unidade.id,numero:dados.uc,cliente_id:unidade.cliente_id});
+        } catch (error) {
+          if (!(error instanceof FaturamentoUcSuspenso)) throw error;
+          arquivarSemCobranca = true;
+        }
+      }
+      if (arquivarSemCobranca) {
         const arquivo=`${unidade.empresa_id}/recebimentos-suspensos/${assumido.id}.pdf`;
         const upload=await supabase.storage.from('faturas').upload(arquivo,await readFile(caminho),{contentType:'application/pdf',upsert:true});
         if(upload.error)throw upload.error;
@@ -844,7 +855,7 @@ async function processarRegistro(registro: any) {
         if(anterior.error)throw anterior.error;
         if(!anterior.data?.length)await criarFaturaAnexadaCliente({clienteId:unidade.cliente_id,empresaId:unidade.empresa_id,caminhoPdf:arquivo,arquivoNome:anexo.filename??'fatura-cemig.pdf',dadosFatura:dados as any});
         const agora=new Date().toISOString();
-        const saved=await supabase.from('recebimentos_faturas_email').update({status:'PROCESSADO',arquivo_nome:anexo.filename??'fatura-cemig.pdf',arquivo_hash:hash,caminho_pdf:arquivo,fatura_id:null,erro:null,payload:adicionarMetadadosDeProcessamento(assumido.payload,{tipo:'FATURAMENTO_SUSPENSO',competencia:dados.referencia}),processado_em:agora,updated_at:agora}).eq('id',assumido.id);
+        const saved=await supabase.from('recebimentos_faturas_email').update({status:'PROCESSADO',arquivo_nome:anexo.filename??'fatura-cemig.pdf',arquivo_hash:hash,caminho_pdf:arquivo,fatura_id:null,erro:null,payload:adicionarMetadadosDeProcessamento(assumido.payload,{tipo:demonstracao?'DEMONSTRACAO_GMAIL':'FATURAMENTO_SUSPENSO',competencia:dados.referencia}),processado_em:agora,updated_at:agora}).eq('id',assumido.id);
         if(saved.error)throw saved.error;
         await atualizarUnidadeRecebimento(unidade.id,{recebimento_email_ultimo_em:agora,recebimento_email_status:'PROCESSADO',recebimento_email_erro:null});
         return;
