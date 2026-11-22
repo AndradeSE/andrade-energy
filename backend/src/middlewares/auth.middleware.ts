@@ -85,6 +85,10 @@ export async function exigirAutenticacao(req: Request, res: Response, next: Next
     if (!recoveryActive()) await supabase.from("sessoes_usuarios").update({ empresa_ativa_id: empresaAtivaId }).eq("id", data!.id);
   }
 
+  const { data: empresaAtiva, error: empresaError } = await supabase.from("empresas").select("id,ativo").eq("id", empresaAtivaId).maybeSingle();
+  const selecionandoAmbiente = req.baseUrl === "/api/empresas" && ((req.method === "GET" && req.path === "/minhas") || (req.method === "POST" && /^\/[^/]+\/selecionar$/.test(req.path)));
+  if (empresaError || ((!empresaAtiva || empresaAtiva.ativo !== true) && !selecionandoAmbiente)) return res.status(403).json({ message: "Esta empresa não está mais disponível. Selecione outro ambiente autorizado." });
+
   const usuarioDaSessao = { ...usuario, empresa_principal_id: usuario.empresa_id, empresa_id: empresaAtivaId, cliente_id: clienteEmpresaId ?? usuario.cliente_id, papel_empresa: papelEmpresa, permissoes: permissoesEmpresa };
   (req as any).usuario = usuarioDaSessao;
   (req as any).empresaId = empresaAtivaId;

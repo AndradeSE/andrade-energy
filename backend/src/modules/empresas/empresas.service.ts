@@ -1,5 +1,5 @@
 import { supabase } from "../../config/supabase";
-import { IDENTIDADE_ANDRADE, empresaIdDoUsuario, usuarioEhSuperAdministradorAndrade } from "../../config/empresa";
+import { EMPRESA_ANDRADE_ID, IDENTIDADE_ANDRADE, empresaIdDoUsuario, usuarioEhSuperAdministradorAndrade } from "../../config/empresa";
 import { auditar } from "../../utils/audit";
 
 const corValida = (valor: unknown, padrao: string) => {
@@ -88,7 +88,7 @@ export async function salvarMinhaIdentidade(input: any, usuario: any) {
 
 export async function listarEmpresas(usuario: any) {
   if (!usuarioEhSuperAdministradorAndrade(usuario)) throw new Error("Acesso exclusivo da administração Andrade Energy.");
-  const { data, error } = await supabase.from("empresas").select("*").order("empresa_proprietaria", { ascending: false }).order("nome");
+  const { data, error } = await supabase.from("empresas").select("*").is("excluida_em", null).order("empresa_proprietaria", { ascending: false }).order("nome");
   if (error) throw error;
   return data ?? [];
 }
@@ -154,10 +154,26 @@ export async function atualizarEmpresa(id: string, input: any, usuario: any) {
   if (input?.emailResposta !== undefined) payload.email_resposta = emailOpcional(input.emailResposta);
   if (input?.dominioEmailVerificado !== undefined) payload.dominio_email_verificado = Boolean(input.dominioEmailVerificado);
   if (input?.ativo !== undefined) payload.ativo = Boolean(input.ativo);
-  const { data, error } = await supabase.from("empresas").update(payload).eq("id", id).select("*").single();
+  const { data, error } = await supabase.from("empresas").update(payload).eq("id", id).is("excluida_em", null).select("*").single();
   if (error) throw error;
   await auditar({ empresaId: id, usuarioId: usuario.id, acao: "EMPRESA_ATUALIZADA", recurso: "empresas", recursoId: id, detalhes: { campos: Object.keys(payload).filter((campo) => campo !== "atualizado_em") } });
   return data;
+}
+
+export async function excluirEmpresa(id: string, confirmacaoNome: unknown, usuario: any) {
+  if (!usuarioEhSuperAdministradorAndrade(usuario)) throw new Error("Somente a administração Andrade Energy pode excluir empresas parceiras.");
+  if (id === EMPRESA_ANDRADE_ID) throw new Error("A empresa proprietária não pode ser excluída.");
+  if (id === empresaIdDoUsuario(usuario)) throw new Error("Troque para o ambiente Andrade Energy antes de excluir esta empresa.");
+  const { data: empresa, error: buscaError } = await supabase.from("empresas").select("id,nome,empresa_proprietaria,excluida_em").eq("id", id).maybeSingle();
+  if (buscaError) throw buscaError;
+  if (!empresa || empresa.excluida_em) throw new Error("Empresa não encontrada ou já excluída.");
+  if (empresa.empresa_proprietaria) throw new Error("A empresa proprietária não pode ser excluída.");
+  if (String(confirmacaoNome ?? "").trim() !== empresa.nome.trim()) throw new Error("Digite o nome da empresa para confirmar a exclusão.");
+  const agora = new Date().toISOString();
+  const { data, error } = await supabase.from("empresas").update({ ativo: false, excluida_em: agora, atualizado_em: agora }).eq("id", id).eq("nome", empresa.nome).eq("empresa_proprietaria", false).is("excluida_em", null).select("id").maybeSingle();
+  if (error) throw error;
+  if (!data) throw new Error("O cadastro mudou. Atualize a lista antes de confirmar novamente.");
+  await auditar({ empresaId: id, usuarioId: usuario.id, acao: "EMPRESA_EXCLUIDA", recurso: "empresas", recursoId: id, detalhes: { nome: empresa.nome, exclusaoLogica: true } });
 }
 
 export async function listarMinhasEmpresas(usuario: any) {
@@ -168,7 +184,7 @@ export async function listarMinhasEmpresas(usuario: any) {
     .eq("ativo", true);
   if (error) throw error;
   return (data ?? []).map((item: any) => ({ ...item.empresas, papel: item.papel, principal: item.principal }))
-    .filter((item: any) => item.ativo !== false)
+    .filter((item: any) => item.ativo !== false && !item.excluida_em)
     .sort((a: any, b: any) => Number(b.principal) - Number(a.principal) || String(a.nome).localeCompare(String(b.nome)));
 }
 

@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { exigirAutenticacao, exigirSuperAdministradorAndrade } from "../../middlewares/auth.middleware";
-import { atualizarEmpresa, criarEmpresa, listarEmpresas, listarMinhasEmpresas, obterEmpresaAtual, obterMinhaIdentidade, salvarMinhaIdentidade, selecionarEmpresaAtiva } from "./empresas.service";
+import { atualizarEmpresa, criarEmpresa, excluirEmpresa, listarEmpresas, listarMinhasEmpresas, obterEmpresaAtual, obterMinhaIdentidade, salvarMinhaIdentidade, selecionarEmpresaAtiva } from "./empresas.service";
 
 const router = Router();
 
@@ -41,6 +41,11 @@ router.post("/", exigirAutenticacao, exigirSuperAdministradorAndrade, async (req
 
 router.patch("/:id", exigirAutenticacao, exigirSuperAdministradorAndrade, async (req, res) => {
   try { return res.json(await atualizarEmpresa(req.params.id, req.body, (req as any).usuario)); }
+  catch (error: any) { return res.status(400).json({ message: error.message }); }
+});
+
+router.delete("/:id", exigirAutenticacao, exigirSuperAdministradorAndrade, async (req, res) => {
+  try { await excluirEmpresa(req.params.id, req.body?.confirmacaoNome, (req as any).usuario); return res.status(204).send(); }
   catch (error: any) { return res.status(400).json({ message: error.message }); }
 });
 
