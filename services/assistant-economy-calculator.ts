@@ -34,11 +34,32 @@ function values(question: string): Partial<Calculation> {
   const text = question.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   // Values are terminated by whitespace or punctuation in the spoken/text
   // command. Keeping the capture compact avoids swallowing “e desconto”.
+  const wordValues: Record<string, number> = {
+    um: 1, uma: 1, dois: 2, duas: 2, tres: 3, quatro: 4, cinco: 5, seis: 6,
+    sete: 7, oito: 8, nove: 9, dez: 10, onze: 11, doze: 12, treze: 13,
+    quatorze: 14, quinze: 15, dezesseis: 16, dezessete: 17, dezoito: 18,
+    dezenove: 19, vinte: 20, trinta: 30, quarenta: 40, cinquenta: 50,
+    sessenta: 60, setenta: 70, oitenta: 80, noventa: 90, cem: 100, cento: 100,
+    duzentos: 200, trezentos: 300, quatrocentos: 400, quinhentos: 500,
+    seiscentos: 600, setecentos: 700, oitocentos: 800, novecentos: 900, mil: 1000,
+  };
+  const word = Object.keys(wordValues).join("|");
+  const normalized = text.replace(new RegExp(`\\b(?:${word})(?:\\s+(?:e\\s+)?(?:${word}))*\\b(?=\\s+(?:reais?|por cento)\\b)`, "g"), phrase => {
+    let total = 0;
+    let group = 0;
+    for (const token of phrase.split(/\s+/)) {
+      if (token === "mil") {
+        total += (group || 1) * 1000;
+        group = 0;
+      } else group += wordValues[token] ?? 0;
+    }
+    return String(total + group);
+  });
   const amount = "(?:r\\$\\s*)?([0-9][0-9.,]*)";
   return {
-    conta: capture(text, [new RegExp(`(?:valor\\s+(?:atual\\s+)?da\\s+)?(?:conta|fatura)(?:\\s+atual)?\\s*(?:e|é|de|=|:|por)?\\s*${amount}`, "i")]),
-    energia: capture(text, [new RegExp(`(?:parcela\\s+(?:de\\s+)?energia(?:\\s+elegivel)?|energia(?:\\s+(?:elegivel|compensada))?|base(?:\\s+de\\s+desconto)?)\\s*(?:e|é|de|=|:|por)?\\s*${amount}`, "i")]),
-    desconto: capture(text, [new RegExp(`(?:desconto(?:\\s+da\\s+proposta)?|percentual)\\s*(?:e|é|de|=|:|por)?\\s*${amount}\\s*%?`, "i")]),
+    conta: capture(normalized, [new RegExp(`(?:valor\\s+(?:atual\\s+)?da\\s+)?(?:conta|fatura)(?:\\s+atual)?\\s*(?:e|é|de|=|:|por)?\\s*${amount}`, "i")]),
+    energia: capture(normalized, [new RegExp(`(?:parcela\\s+(?:de\\s+)?energia(?:\\s+elegivel)?|energia(?:\\s+(?:elegivel|compensada))?|com(?=\\s+(?:r\\$)?\\s*[0-9][0-9.,]*\\s+reais?\\s+de\\s+energia)|base(?:\\s+de\\s+desconto)?)\\s*(?:e|é|de|=|:|por)?\\s*${amount}`, "i")]),
+    desconto: capture(normalized, [new RegExp(`(?:desconto(?:\\s+da\\s+proposta)?|percentual)\\s*(?:e|é|de|=|:|por)?\\s*${amount}\\s*%?`, "i")]),
   };
 }
 

@@ -1,3 +1,4 @@
+import { INVERTER_INTEGRATIONS_ENABLED } from "../../config/appVariant";
 import { canViewServiceQuotas } from "../../utils/service-quota-access";
 import { unidadesParaRecebimento } from "../../utils/unidadesRecebimento";
 import { Ionicons } from "@expo/vector-icons";
@@ -296,7 +297,7 @@ export default function DashboardGestor() {
                 { id: "importar-producao", icon: "document-attach-outline" as const, label: importando ? "Importando produção…" : "Importar produção PDF", onPress: () => { if (!importando) void atualizarGeracao(); } },
                 { id: "recebimento-producao", icon: "mail-unread-outline" as const, label: "Recebimento da usina", onPress: abrirRecebimentoProducao },
                 { id: "faturamento-automatico", icon: "mail-outline" as const, label: "Faturamento automático", onPress: () => void abrirFaturamentoAutomatico() },
-                ...(usinaSelecionada?.id ? [{ id: "inversores", icon: "hardware-chip-outline" as const, label: "Inversores", onPress: () => router.push({ pathname: "/usinas/inversores", params: { id: usinaSelecionada.id } }) }] : []),
+                ...(INVERTER_INTEGRATIONS_ENABLED && usinaSelecionada?.id ? [{ id: "inversores", icon: "hardware-chip-outline" as const, label: "Inversores", onPress: () => router.push({ pathname: "/usinas/inversores", params: { id: usinaSelecionada.id } }) }] : []),
               ] : []),
               {
                 id: "compartilhar-app-gerador",

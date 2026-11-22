@@ -778,6 +778,11 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
                 }
                 return navigation.text;
               }
+              if (IS_GERADOR_APP && asksEconomyCalculation(question) && !asksAverageConsumption(question) && !asksLatestConsumption(question)) {
+                const history = messagesRef.current.filter(message => message.from === "user").slice(-6).map(message => message.text);
+                const calculation = await calculateEconomyConversation(question, history);
+                if (calculation) return calculation.text;
+              }
               const reply = await queryLiveAccount(perguntaComContextoDoContrato(question), {
                 generator: IS_GERADOR_APP, role: usuario?.perfil,
                 plantId: usinaSelecionada?.id, unitId: unidadeSelecionada?.id,

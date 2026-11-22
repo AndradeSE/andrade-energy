@@ -1,5 +1,6 @@
+import { INVERTER_INTEGRATIONS_ENABLED } from "../../config/appVariant";
 import { Ionicons } from "@expo/vector-icons";
-import { router, useLocalSearchParams } from "expo-router";
+import { Redirect, router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { Alert, StyleSheet, Text, View } from "react-native";
 
@@ -37,6 +38,10 @@ const provedores = [
 const nomeProvedor = (valor: string) => provedores.find((item) => item.value === valor)?.label ?? valor;
 
 export default function InversoresDaUsina() {
+  return INVERTER_INTEGRATIONS_ENABLED ? <IntegracoesDaUsina /> : <Redirect href="/" />;
+}
+
+function IntegracoesDaUsina() {
   const { id, nome } = useLocalSearchParams<{ id: string; nome?: string }>();
   const [lista, setLista] = useState<Inversor[]>([]);
   const [loading, setLoading] = useState(true);

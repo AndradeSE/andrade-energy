@@ -62,7 +62,8 @@ export function resolveSafeNavigation(question: string, ctx: SafeNavigationConte
   if (/\b(nova uc|nova unidade|cadastro de uc)\b/.test(text)) return available("unidades") ? open("Cadastro de UC para preenchimento", "/unidades/nova") : denied;
   if (/\b(nova usina|cadastro de usina)\b/.test(text)) return available("usinas") && !collaborator ? open("Cadastro de usina para preenchimento", "/usinas/nova") : denied;
   if (/\b(perfil|meus dados|privacidade)\b/.test(text)) return open("Perfil", "/(tabs)/perfil");
-  if (/\b(comercial|geradores|empresas parceiras)\b/.test(text)) return ctx.generator && ctx.role === "ADMIN" && !collaborator ? open("Comercial", "/admin/comercial") : denied;
+  if (/\bempresa(?:s)? parceira(?:s)?\b/.test(text)) return ctx.generator && ctx.role === "ADMIN" && !collaborator ? open("Empresas parceiras", "/admin/empresas") : denied;
+  if (/\b(comercial|geradores)\b/.test(text)) return ctx.generator && ctx.role === "ADMIN" && !collaborator ? open("Comercial", "/admin/comercial") : denied;
   if (/\b(usinas|lista de usinas)\b/.test(text)) return available("usinas") ? open("Usinas", "/selecionar-unidade") : denied;
   if (/\b(ucs?|unidades?(?: consumidoras?)?)\b/.test(text) && !/\b(contratos?|faturas?|recebimento|automatico)\b/.test(text)) return ctx.generator ? available("unidades") ? open("Unidades consumidoras", "/unidades", params) : denied : open("Suas unidades", "/selecionar-unidade");
   if (/\b(clientes?|consumidor(?:es)?)\b/.test(text) && !/\b(contratos?|faturas?)\b/.test(text)) return available("clientes") ? open("Clientes", "/(tabs)/clientes", params) : denied;
