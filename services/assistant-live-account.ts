@@ -1,8 +1,9 @@
+import api from "../config/api";
 import { requestedUnitDetails } from "./assistant-unit-details";
 import { asksAverageConsumption, detectCapability } from "./assistant-capabilities";
 import { executeAssistantTool, type AssistantAccountContext } from "./assistant-tools";
 import { normalizeAssistantQuery, asksLatestInvoiceAmount } from "./local-assistant";
-import { asksLatestInvoiceDocument, asksOverdueInvoices, invoiceDocumentChoices, latestInvoiceAmountReply, overdueInvoiceReply } from "./local-assistant-invoices";
+import { asksLatestInvoiceDocument, asksOverdueInvoices, asksOverdueCharges, invoiceDocumentChoices, latestInvoiceAmountReply, overdueInvoiceReply } from "./local-assistant-invoices";
 import { listarFaturas } from "./faturas.service";
 import { detectProductionMetric, productionMetricReply } from "./assistant-production";
 import { buscarDashboardUsina } from "./usinas.service";
@@ -17,6 +18,18 @@ export type LiveAccountReply = AssistantToolReply & { invoiceId?: string; invoic
 
 // Contexto vem da sessão do app. O modelo não fornece IDs, URLs ou endpoints.
 export async function queryLiveAccount(question: string, ctx: AssistantAccountContext): Promise<LiveAccountReply> {
+  if (asksOverdueCharges(question)) {
+    if (ctx.generator && !ctx.plantId) return { text: "Selecione a usina para consultar o boleto." };
+    if (!ctx.generator && !ctx.unitNumber) return { text: "Selecione a UC para consultar o boleto." };
+    const invoices = ctx.generator
+      ? await listarFaturas(undefined, undefined, ctx.plantId)
+      : await listarFaturas(ctx.clientId, ctx.unitNumber);
+    try {
+      return { text: await overdueChargesReply(question, invoices, ctx.unitNumber) };
+    } catch {
+      return { text: "Não consegui confirmar os encargos do boleto agora." };
+    }
+  }
   const requested = detectCapability(question);
   if (requested?.module === "sobre" || requested?.module === "unidades" && (asksAverageConsumption(question) || requestedUnitDetails(question).length > 0)) {
     return executeAssistantTool(requested, ctx, question);
@@ -75,4 +88,22 @@ export function redactLiveAccountText(text: string) {
     .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[e-mail disponível no perfil]")
     .replace(/(?:senha|password|token|api[ _-]?key|código de acesso|codigo de acesso)\s*[:=]\s*\S+/gi, "[credencial omitida]")
     .replace(/(?:Telefone|Endereço|CPF|CNPJ)\s*:[^\n]+/gi, "[dado disponível no perfil]").slice(0, 3000);
+}
+
+async function overdueChargesReply(question: string, invoices: Parameters<typeof overdueInvoiceReply>[0], selectedUnit?: string) {
+  const explicitUnit = /\b(?:uc|unidade)(?:\s+final)?\s+(\d{3,})\b/i.exec(question)?.[1];
+  const units = overdueInvoiceReply(invoices).invoices.filter(invoice => {
+    const number = String(invoice.numero_instalacao ?? "").replace(/\D/g, "");
+    return explicitUnit ? number.endsWith(explicitUnit) : !selectedUnit || number === selectedUnit;
+  });
+  const candidates = invoiceDocumentChoices(question, units);
+  if (!candidates.length) return "Não encontrei um boleto vencido e em aberto para esse pedido.";
+  if (candidates.length > 1) {
+    return "Encontrei mais de um boleto vencido. Informe a UC e o mês da fatura: " +
+      candidates.slice(0, 5).map(invoice => `UC final ${String(invoice.numero_instalacao ?? "").slice(-4)}, ${invoice.referencia ?? "sem referência"}`).join("; ") + ".";
+  }
+  const { data } = await api.get(`/faturas/${encodeURIComponent(candidates[0].id)}/encargos-boleto`);
+  if (!data.disponivel) return data.motivo ?? "Não consegui confirmar os encargos desse boleto.";
+  const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+  return `Estimativa para pagamento hoje do boleto ${data.referencia ?? ""}, com ${data.dias} dia(s) de atraso. Valor original ${brl.format(data.principal)}, juros ${brl.format(data.juros)}, multa ${brl.format(data.multa)}. Total estimado ${brl.format(data.total)}. Base: ${data.fonte}. Confira o valor atualizado antes de pagar.`;
 }

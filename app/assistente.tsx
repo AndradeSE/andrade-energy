@@ -24,12 +24,12 @@ import { isAssistantEnabled as isPreviewEnvironment, supportsAssistantLive } fro
 import { IS_GERADOR_APP } from "../config/appVariant";
 import { answerInConversation, asksLatestInvoiceAmount, LocalReply, LocalTopic, normalizeAssistantQuery } from "../services/local-assistant";
 import { buscarFatura, listarFaturas } from "../services/faturas.service";
-import { asksLatestInvoiceDocument, invoiceDocumentChoices, latestInvoiceAmountReply, asksOverdueInvoices, overdueInvoiceReply } from "../services/local-assistant-invoices";
+import { asksLatestInvoiceDocument, invoiceDocumentChoices, latestInvoiceAmountReply, asksOverdueInvoices, asksOverdueCharges, overdueInvoiceReply } from "../services/local-assistant-invoices";
 import { detectFinancialMetric, financialMetricReply } from "../services/assistant-financial";
 import { carregarFinanceiro } from "../services/financeiro.service";
 import { answerWithLocalModel, cancelModelDownload, installLocalModel, isModelInstalled, releaseLocalModel, subscribeModelInstall } from "../services/on-device-model";
 import { finishDictation, installVoiceModels, isVoiceInstalled, pauseContinuousListening, releaseVoiceRecognition, startContinuousListening, stopContinuousListening } from "../services/on-device-voice";
-import { speakConversationOnline, speakSafeOnlineOrLocal, speakAuthorizedAccountOnline, stopAssistantVoice } from "../services/assistant-voice";
+import { speakConversationOnline, speakSafeOnlineOrLocal, speakAuthorizedAccountOnline, speakAssistantReply, stopAssistantVoice } from "../services/assistant-voice";
 import { accountVoiceConsent, onlineAudioConsent, setOnlineAudioConsent, geminiLiveAudioConsent, setGeminiLiveAudioConsent } from "../services/assistant-voice-consent";
 import { loadAssistantResponseMode, type AssistantResponseMode } from "../services/assistant-response-mode";
 import { answerAssistantConversation } from "../services/assistant-conversation-policy";
@@ -47,7 +47,7 @@ import { asksAverageConsumption, asksConsumptionInvoice, asksLatestConsumption, 
 import { executeAssistantTool, resolveAssistantDocument } from "../services/assistant-tools";
 import { queryLiveAccount, redactLiveAccountText } from "../services/assistant-live-account";
 import { setFloatingConversationPhase } from "../services/assistant-floating-conversation";
-import {needsAssistantGreeting,markAssistantGreetingDelivered} from '../services/assistant-greeting-session';
+import {needsAssistantGreeting,markAssistantGreetingDelivered,nextAssistantActivationPhrase} from '../services/assistant-greeting-session';
 import { parseAutomationCommand, prepareAutomation, createAutomationExecutor, type AutomationDraft } from "../shared/solar-automation";
 import { nativeAutomationContext, nativeAutomationIO } from "../services/assistant-native-automation";
 import { normalizeSolarRequest } from "../shared/solar-language";
@@ -430,13 +430,14 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
       ? `${perguntaNormalizada.replace(/[?!.]+$/, "")} do cliente ${clienteAnterior}`
       : perguntaNormalizada, consultaAnterior?.private ? consultaAnterior.text : undefined);
     const automationCommand = parseAutomationCommand(question);
-    const safeNavigation = asksLatestConsumption(question) ? undefined : resolveSafeNavigation(question, {
+    const safeNavigation = asksLatestConsumption(question) || asksOverdueCharges(question) ? undefined : resolveSafeNavigation(question, {
       generator: IS_GERADOR_APP, role: usuario?.perfil, companyRole: usuario?.papel_empresa,
       plantId: usinaSelecionada?.id, unitId: unidadeSelecionada?.id, unitNumber: unidadeSelecionada?.numero, canReadMeter: unidadeSelecionada?.status === "ATIVA" && unidadeSelecionada.autoleitura_rural_ativa === true, clientId: unidadeSelecionada?.cliente_id ?? usuario?.cliente_id, permissions: usuario?.permissoes,
     });
     pendingAutomationRef.current = undefined;
     setPendingAutomation(undefined);
-    const wantsOverdue = asksOverdueInvoices(interpretedQuestion);
+    const wantsOverdueCharges = asksOverdueCharges(interpretedQuestion);
+    const wantsOverdue = wantsOverdueCharges || asksOverdueInvoices(interpretedQuestion);
     const generation = contextGeneration.current;
     const wantsInvoiceDocument = asksLatestInvoiceDocument(interpretedQuestion, lastInvoiceRequest.current);
     const economyHistory = messagesRef.current.filter(m => m.from === "user").slice(-6).map(m => m.text);
@@ -499,6 +500,12 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
         response = { from: "assistant", private: true, text: "Posso abrir diretamente as áreas permitidas, pesquisar clientes e UCs e filtrar faturas por abertas, vencidas ou pagas. Exemplos: abra os contratos, busque cliente Rodrigo, mostre faturas vencidas ou abra operação 09/2026. Também preencho campos e aciono botões ativos da tela: diga “preencha o campo Nome com Maria Silva” ou “clique no botão Salvar”. Botões exigem sua confirmação; preencher não salva. Consulto dados e documentos e preparo alterações cadastrais para revisão. Cobranças, assinaturas, exclusões e permissões exigem confirmação nas telas próprias." };
       } else if (speechStatus) {
         response = { from: "assistant", text: speechStatus, private: true };
+      } else if (wantsOverdueCharges) {
+        response = { from: "assistant", private: true, ...await queryLiveAccount(interpretedQuestion, {
+          generator: IS_GERADOR_APP, role: usuario?.perfil, plantId: usinaSelecionada?.id,
+          unitId: unidadeSelecionada?.id, unitNumber: unidadeSelecionada?.numero,
+          clientId: unidadeSelecionada?.cliente_id ?? usuario?.cliente_id,
+        }) };
       } else if (economyCalculation) {
         const calculation = await calculateEconomyConversation(interpretedQuestion, economyHistory);
         response = { from: "assistant", private: true, text: calculation?.text ?? "Informe consumo em kWh e desconto para eu calcular aqui." };
@@ -740,7 +747,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
           const session = await startGeminiLive(firstName, {
             hasRememberedUnit: lastVoiceAccountQuestion?.scope === accountContextKey,
             conversationContext: JSON.stringify(messagesRef.current.filter(m => !m.private).slice(-8).map(m => ({from:m.from,text:m.text.slice(0,500)}))),
-            greet: needsAssistantGreeting(String(usuario?.id ?? 'anonymous')),
+            returningGreeting: needsAssistantGreeting(String(usuario?.id ?? 'anonymous')) ? undefined : nextAssistantActivationPhrase(String(usuario?.id ?? 'anonymous')),
             onGreetingDelivered: () => markAssistantGreetingDelivered(String(usuario?.id ?? 'anonymous')),
             onLevel:level=>{if(liveGeneration.current!==liveAttempt)return;Animated.timing(voiceMeter,{toValue:level,duration:70,useNativeDriver:true}).start();},
             onReady: () => playActivationBeep(true),
@@ -765,7 +772,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
               }
               if (pedidoFecharPdf(question)) { fecharPdfContrato(); return "Fechei o PDF."; }
               if (perguntaSobrePdfAberto(question)) return await consultarContratoAberto(question);
-              const navigation = asksLatestConsumption(question) ? undefined : resolveSafeNavigation(question, {
+              const navigation = asksLatestConsumption(question) || asksOverdueCharges(question) ? undefined : resolveSafeNavigation(question, {
                 generator: IS_GERADOR_APP, role: usuario?.perfil, companyRole: usuario?.papel_empresa,
                 plantId: usinaSelecionada?.id, unitId: unidadeSelecionada?.id, unitNumber: unidadeSelecionada?.numero, canReadMeter: unidadeSelecionada?.status === "ATIVA" && unidadeSelecionada.autoleitura_rural_ativa === true, clientId: unidadeSelecionada?.cliente_id ?? usuario?.cliente_id, permissions: usuario?.permissoes,
               });
@@ -778,7 +785,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
                 }
                 return navigation.text;
               }
-              if (IS_GERADOR_APP && asksEconomyCalculation(question) && !asksAverageConsumption(question) && !asksLatestConsumption(question)) {
+              if (IS_GERADOR_APP && !asksOverdueCharges(question) && asksEconomyCalculation(question) && !asksAverageConsumption(question) && !asksLatestConsumption(question)) {
                 const history = messagesRef.current.filter(message => message.from === "user").slice(-6).map(message => message.text);
                 const calculation = await calculateEconomyConversation(question, history);
                 if (calculation) return calculation.text;
@@ -858,9 +865,13 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
     setSpeakingReply(true);
     if (!startFromCommand) await playActivationBeep();
     if (!voiceActive.current) return;
-    if (!needsAssistantGreeting(String(usuario?.id ?? 'anonymous'))) {
-      setSpeakingReply(false);
-      await resumeVoice();
+    const greetingAccountId = String(usuario?.id ?? "anonymous");
+    if (!needsAssistantGreeting(greetingAccountId)) {
+      speakAssistantReply(nextAssistantActivationPhrase(greetingAccountId), () => {
+        if (!voiceActive.current) return;
+        setSpeakingReply(false);
+        void resumeVoice();
+      });
       return;
     }
     if (startFromCommand) {

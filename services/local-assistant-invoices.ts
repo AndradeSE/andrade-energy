@@ -1,4 +1,4 @@
-type InvoiceSnapshot = { id: string; status?: string; vencimento?: string; pago_em?: string; cobrancas?: Array<{ status?: string; pago_em?: string }>; created_at?: string; referencia?: string; valor_total_unificado?: number; valor_total?: number; pdf_unificada_url?: string; pdf_cemig_url?: string };
+type InvoiceSnapshot = { id: string; numero_instalacao?: string; status?: string; vencimento?: string; pago_em?: string; cobrancas?: Array<{ status?: string; pago_em?: string }>; created_at?: string; referencia?: string; valor_total_unificado?: number; valor_total?: number; pdf_unificada_url?: string; pdf_cemig_url?: string };
 
 export function asksOverdueInvoices(input: string) {
   const text = input.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
@@ -67,4 +67,10 @@ export function latestInvoiceAmountReply(invoices: InvoiceSnapshot[]): string {
   const formatted = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(amount);
   const reference = latest.referencia ? `, referência ${formatReference(latest.referencia)}` : "";
   return `A última fatura emitida foi de ${formatted}${reference}. Consulte Faturas para conferir os detalhes.`;
+}
+
+export function asksOverdueCharges(question: string) {
+  const text = question.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  return /\b(juros|multa|encargos|valor atualizado|quanto (fica|da|vou pagar))\b/.test(text)
+    && /\b(boleto|fatura|cobranca|atraso|atrasad[ao]|vencid[ao])\b/.test(text);
 }

@@ -1,4 +1,6 @@
 import { Router } from "express";
+import { consultarEncargosBoleto } from "./encargosBoleto.service";
+import { empresaIdDaRequisicao } from "../../utils/empresaScope";
 import { upload } from "../../config/multer";
 
 import {
@@ -33,6 +35,13 @@ router.post(
 );
 
 router.get("/:id/relatorio-calculo", exigirContratoDaUc, obterRelatorioCalculoFaturaController);
+router.get("/:id/encargos-boleto", exigirContratoDaUc, async (req, res) => {
+  try {
+    return res.json(await consultarEncargosBoleto(req.params.id, empresaIdDaRequisicao(req)));
+  } catch {
+    return res.status(503).json({ message: "Não foi possível confirmar os encargos desse boleto." });
+  }
+});
 router.get("/:id", exigirContratoDaUc, detalharFaturaController);
 router.delete("/:id", exigirGestor, excluirFaturaController);
 router.post("/:id/confirmar", exigirGestor, confirmarFaturaRascunhoController);
