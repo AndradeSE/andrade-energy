@@ -43,7 +43,8 @@ export async function verifyNeonRecovery(env: NodeJS.ProcessEnv, automatic = fal
     assert.equal(await countNotices(),2*firstNotices);
     const {rows:[user]}=await pg.query(`SELECT u.id,e.empresa_id FROM public.usuarios u
       JOIN public.empresa_usuarios e ON e.usuario_id=u.id AND e.ativo=true
-      WHERE u.ativo=true AND u.perfil='ADMIN' ORDER BY u.id LIMIT 1`);
+      JOIN public.empresas empresa ON empresa.id=e.empresa_id AND empresa.ativo=true
+      WHERE u.ativo=true AND u.perfil='ADMIN' ORDER BY e.principal DESC NULLS LAST, u.id, e.empresa_id LIMIT 1`);
     if(!user) throw new Error('Preview sem administrador para conferir a recuperação');
     await pg.query(`INSERT INTO public.sessoes_usuarios(id,usuario_id,empresa_ativa_id,token_hash,expira_em)
       VALUES($1,$2,$3,$4,now()+interval '3 minutes')`,[sessionId,user.id,user.empresa_id,hashToken(token)]);
