@@ -1,3 +1,5 @@
+import { consultarEncargosBoleto } from "./encargosBoleto.service";
+import { empresaIdDaRequisicao } from "../../utils/empresaScope";
 import { visualizarPaginaFatura } from "./visualizacaoFatura";
 import { Router } from "express";
 import { upload } from "../../config/multer";
@@ -37,6 +39,13 @@ router.get("/:id/visualizacao", exigirContratoDaUc, (req, res) => {
   void visualizarPaginaFatura(req, res).catch(() => { res.status(503).json({ message: "Não foi possível consultar a fatura." }); });
 });
 router.get("/:id/relatorio-calculo", exigirContratoDaUc, obterRelatorioCalculoFaturaController);
+router.get("/:id/encargos-boleto", exigirContratoDaUc, async (req, res) => {
+  try {
+    return res.json(await consultarEncargosBoleto(req.params.id, empresaIdDaRequisicao(req)));
+  } catch {
+    return res.status(503).json({ message: "Não foi possível confirmar os encargos desse boleto." });
+  }
+});
 router.get("/:id", exigirContratoDaUc, detalharFaturaController);
 router.delete("/:id", exigirGestor, excluirFaturaController);
 router.post("/:id/confirmar", exigirGestor, confirmarFaturaRascunhoController);
