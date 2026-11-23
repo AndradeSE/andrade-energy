@@ -30,12 +30,17 @@ begin
   delete from public.contingencia_requisicoes where id=pendencia;
   update public.contingencia_automacao set ultima_consulta=now()-interval '65 seconds' where id=true;
   insert into public.contingencia_trabalhos(nome,estado,executor,dono,lease_ate,proxima_execucao)
-    values('COTAS','REVISAO','RENDER',gen_random_uuid(),now(),now());
-  if public.observar_render_reserva_contingencia(servico,'BILLING',versao)<>'AGUARDANDO_OPERACOES' then raise exception 'Trabalho incerto'; end if;
-  delete from public.contingencia_trabalhos where nome='COTAS';
+    values('FATURAS_EMAIL','REVISAO','RENDER',gen_random_uuid(),now(),now()),
+          ('NOTIFICACOES_FATURA','EXECUTANDO','RENDER',gen_random_uuid(),now()-interval '1 minute',now()),
+          ('RATEIOS','EXECUTANDO','RENDER',gen_random_uuid(),now()+interval '1 minute',now());
+  if public.observar_render_reserva_contingencia(servico,'BILLING',versao)<>'AGUARDANDO_OPERACOES' then raise exception 'Trabalho com prazo vigente'; end if;
+  update public.contingencia_trabalhos set lease_ate=now()-interval '1 second' where nome='RATEIOS';
   update public.contingencia_automacao set ultima_consulta=now()-interval '65 seconds' where id=true;
   if public.observar_render_reserva_contingencia(servico,'BILLING',versao)<>'RENDER_RESERVA_ATIVADA' then raise exception 'Troca confirmada'; end if;
   if not exists(select 1 from public.contingencia_controle where id=true and executor='RENDER_RESERVA' and revisao=revisao_inicial+1) then raise exception 'Revisão inválida'; end if;
+  if (select count(*) from public.contingencia_trabalhos where estado='REVISAO')<>3 then raise exception 'Tarefas não foram isoladas'; end if;
+  if public.reservar_trabalho_contingencia('RATEIOS','RENDER_RESERVA',gen_random_uuid(),60,versao) then raise exception 'Tarefa em revisão reexecutada'; end if;
+  if not public.reservar_trabalho_contingencia('CONVITES','RENDER_RESERVA',gen_random_uuid(),60,versao) then raise exception 'Tarefa independente bloqueada'; end if;
   update public.contingencia_automacao set ultima_consulta=now()-interval '65 seconds' where id=true;
   perform public.observar_render_reserva_contingencia(servico,'BILLING',versao);
   update public.contingencia_automacao set ultima_consulta=now()-interval '65 seconds' where id=true;
