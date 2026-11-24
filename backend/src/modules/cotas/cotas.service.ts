@@ -120,6 +120,20 @@ const geminiQuotaSnapshot = [
   consulta: { servico: "GEMINI", status: "CONSULTA_MANUAL", consultado_em: "2026-11-23T00:00:00-03:00" },
 }));
 
+const reserveProviderReadings = [
+  {
+    servico: "NEON", metrica: "compute_reserva", rotulo: "Neon · reserva de produção",
+    observacao: "Leitura confirmada no console em 23/11/2026: 32,43 de 100 CU-horas usadas, com 67,57 restantes no ciclo. Armazenamento: 41,39 MB de 1 GB. Transferência: 1,53 GB.",
+  },
+  {
+    servico: "NETLIFY", metrica: "creditos", rotulo: "Netlify · créditos da equipe",
+    observacao: "Leitura confirmada no console em 23/11/2026: 0 créditos disponíveis e 1.662,9 consumidos no ciclo de novembro. Franquia mensal do plano Free: 300 créditos.",
+  },
+].map(item => ({
+  ...item, unidade: "", automatico: false, leitura: null,
+  consulta: { servico: item.servico, status: "CONSULTA_MANUAL", consultado_em: "2026-11-23T00:00:00-03:00" },
+}));
+
 export async function listServiceQuotas(includeBrevo = false, includeAzure = false) {
   const env = quotaEnvironment();
   const [readings, checks] = await Promise.all([
@@ -141,5 +155,5 @@ export async function listServiceQuotas(includeBrevo = false, includeAzure = fal
       faixa: quotaBand(Number(reading.usado), reading.limite === null ? null : Number(reading.limite)),
       desatualizada: Date.now()-Date.parse(reading.verificado_em)>6*3600_000 } : null,
       consulta: check };
-  }),capmonster,...(includeAzure && env === "production" ? geminiQuotaSnapshot : [])], reservaDados: await neonRecoveryReadiness(process.env) };
+  }),capmonster,...(includeAzure && env === "production" ? [...geminiQuotaSnapshot, ...reserveProviderReadings] : [])], reservaDados: await neonRecoveryReadiness(process.env) };
 }
