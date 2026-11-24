@@ -1,14 +1,24 @@
+import { existsSync } from "node:fs";
+import path from "node:path";
 import { Worker } from "node:worker_threads";
 
 /** O parser pode prender o event loop; um timer no mesmo processo não basta. */
 export function extrairTextoPdfIsolado(caminho: string, senha?: string): Promise<string> {
   return new Promise((resolve, reject) => {
+    // O bundle do Netlify move o chamador, mas distribui dist/ como arquivos auxiliares.
+    const raizLambda = process.env.LAMBDA_TASK_ROOT;
+    const moduloAuxiliar = raizLambda
+      ? path.join(raizLambda, "dist", "services", "ocr", "ocr.service.js")
+      : null;
+    const modulo = moduloAuxiliar && existsSync(moduloAuxiliar)
+      ? moduloAuxiliar
+      : require.resolve("./ocr.service");
     const worker = new Worker(`
       const { parentPort, workerData } = require('node:worker_threads');
       require(workerData.modulo).extrairTextoPDF(workerData.caminho, workerData.senha)
         .then(texto => parentPort.postMessage({ texto }))
         .catch(() => parentPort.postMessage({ erro: 'Não foi possível ler o PDF. Confira o arquivo e, se protegido, a senha.' }));
-    `, { eval: true, workerData: { modulo: require.resolve("./ocr.service"), caminho, senha } });
+    `, { eval: true, workerData: { modulo, caminho, senha } });
     let concluido = false;
     const finalizar = (erro?: Error, texto?: string) => {
       if (concluido) return;

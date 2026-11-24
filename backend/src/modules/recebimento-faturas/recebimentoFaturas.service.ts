@@ -736,6 +736,8 @@ async function processarRegistro(registro: any) {
       let dados: ReturnType<typeof interpretarFatura> | null = null;
       let senhaDoPdf: string | undefined;
       let pdfDeOutraUc = false;
+      let textoExtraido = false;
+      let ucIdentificada = false;
       const tentativas = new Map<string, any>();
       tentativas.set("", null);
       for (const candidata of candidatas) {
@@ -746,7 +748,9 @@ async function processarRegistro(registro: any) {
         try {
           etapa("LER_PDF");
           const texto = await extrairTextoPdfIsolado(caminho, senha || undefined);
+          textoExtraido ||= texto.trim().length > 0;
           const interpretados = complementarCabecalhoCemig(texto, interpretarFatura(texto));
+          ucIdentificada ||= normalizarNumero(interpretados.uc).length > 0;
           if (pdfDeOutraUcNaGeradora(unidadeConfiguracao, interpretados.uc)) pdfDeOutraUc = true;
           const encontrada = candidatas.find((candidata) => normalizarNumero(candidata.numero) === normalizarNumero(interpretados.uc));
           if (encontrada) {
@@ -764,7 +768,11 @@ async function processarRegistro(registro: any) {
         if(ignorado.error)throw ignorado.error;
         return;
       }
-      if (!unidade || !dados) throw new Error("A UC do PDF não pertence às UCs abrangidas por esta configuração.");
+      if (!unidade || !dados) {
+        if (!textoExtraido) throw new Error("Não foi possível extrair texto do PDF. Confira se o documento abre e se os dados do titular cadastrado correspondem aos da conta protegida.");
+        if (!ucIdentificada) throw new Error("O PDF foi lido, mas o número da UC não foi identificado. Confira se é a conta completa da concessionária.");
+        throw new Error("A UC do PDF não pertence às UCs abrangidas por esta configuração.");
+      }
 
       await supabase.from("recebimentos_faturas_email").update({ unidade_consumidora_id: unidade.id }).eq("id", assumido.id);
 
