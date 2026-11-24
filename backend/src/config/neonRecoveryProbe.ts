@@ -145,6 +145,11 @@ export async function verifyNeonRecovery(env: NodeJS.ProcessEnv, automatic = fal
       assert.deepEqual(transitions,['NEON','SUPABASE']);
     }
     return {automatic, returnedToPrimary: automatic, realHttpRouter:true,authenticated:true,tenantScoped:true,mutationsBlocked:true,revocationChecked:true,slidingSessionDisabled:true,transitionDeduplicated:true,privateFilesAdapted:true};
+  } catch (error) {
+    const code = (error as { code?: unknown } | null)?.code;
+    const codeLabel = typeof code === 'string' && /^(?:[0-9A-Z]{5}|ERR_[A-Z_]+)$/.test(code) ? ' (' + code + ')' : '';
+    console.error('Conferência de recuperação do Neon falhou na etapa: ' + step + codeLabel);
+    throw error;
   } finally {
     if(server) await new Promise<void>((resolve,reject)=>server!.close(error=>error?reject(error):resolve()));
     recovery?.stop();
