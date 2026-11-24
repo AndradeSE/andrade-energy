@@ -107,6 +107,19 @@ async function monitorAzureQuota() {
   const result = await supabase.from("cotas_consultas").upsert({ ambiente: env, servico: "AZURE", status, consultado_em: new Date().toISOString() });
   if (result.error) throw new Error("Não foi possível registrar a consulta de cotas do Azure.");
 }
+const geminiQuotaSnapshot = [
+  { metrica: "gemini_35_flash_lite", rotulo: "Gemini 3.5 Flash Lite · conversa",
+    limites: "15 requisições/min, 250 mil tokens de entrada/min e 500 requisições/dia" },
+  { metrica: "gemini_38_live", rotulo: "Gemini 3.8 Live · voz em tempo real",
+    limites: "65 mil tokens de entrada/min; requisições/min e requisições/dia indicadas como ilimitadas" },
+  { metrica: "gemini_38_flash_lite_tts", rotulo: "Gemini 3.8 Flash Lite TTS · síntese de voz",
+    limites: "3 requisições/min, 10 mil tokens de entrada/min e 10 requisições/dia" },
+].map(({ limites, ...model }) => ({
+  ...model, servico: "GEMINI", unidade: "", automatico: false, leitura: null,
+  observacao: `Projeto Andrade Energy, nível gratuito. Limites consultados no Google AI Studio em 23/11/2026: ${limites}. Uso atual: consulte o AI Studio.`,
+  consulta: { servico: "GEMINI", status: "CONSULTA_MANUAL", consultado_em: "2026-11-23T00:00:00-03:00" },
+}));
+
 export async function listServiceQuotas(includeBrevo = false, includeAzure = false) {
   const env = quotaEnvironment();
   const [readings, checks] = await Promise.all([
@@ -128,5 +141,5 @@ export async function listServiceQuotas(includeBrevo = false, includeAzure = fal
       faixa: quotaBand(Number(reading.usado), reading.limite === null ? null : Number(reading.limite)),
       desatualizada: Date.now()-Date.parse(reading.verificado_em)>6*3600_000 } : null,
       consulta: check };
-  }),capmonster], reservaDados: await neonRecoveryReadiness(process.env) };
+  }),capmonster,...(includeAzure && env === "production" ? geminiQuotaSnapshot : [])], reservaDados: await neonRecoveryReadiness(process.env) };
 }
