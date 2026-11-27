@@ -411,7 +411,9 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
     pdf.fillColor("#D8EEE6").font("Helvetica-Bold").fontSize(8).text("SEM ANDRADE ENERGY · COM IMPOSTOS", 326, y.total + 19);
     pdf.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(18).text(moeda(valorSemAndrade), 326, y.total + 33);
     pdf.fillColor("#F6CC32").font("Helvetica-Bold").fontSize(7).text(`Economia: ${moeda(economiaReal)}`, 326, y.total + 58);
-    pdf.fillColor("#D8EEE6").font("Helvetica").fontSize(6.2).text(`Desconto contratado: ${percentual(descontoContratado)}`, 326, y.total + 69);
+    pdf.fillColor("#D8EEE6").font("Helvetica").fontSize(6.2).text(fatura.meta_desconto_real_percentual != null
+      ? `Desconto real aproximado: ${percentual(numero(fatura.meta_desconto_real_percentual))}`
+      : `Desconto contratado: ${percentual(descontoContratado)}`, 326, y.total + 69);
     pdf.fillColor("#D8EEE6").font("Helvetica-Bold").fontSize(6.2).text(`Desconto real sobre compensação: ${percentual(descontoReal)}`, 326, y.total + 79);
 
     pdf.roundedRect(48, y.aviso, LARGURA, 40, 6).fill(faturaSomenteAndrade ? "#FFF0D8" : "#FFF7E7");
@@ -441,7 +443,7 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
       ? [["1", rotuloCemig, moeda(valorCemig)], ["2", valorTotalAbsorvido > 0 ? "VALOR DA ENERGIA ANDRADE\nAPÓS ABATIMENTOS" : `ENERGIA ANDRADE\n(${energia(energiaCobrada)})`, moeda(valorUsina)], ["3", "TOTAL UNIFICADO", moeda(valorTotal)]]
       : [
           ["1", `${energia(energiaCobrada)} ×\n${tarifaKwh(tarifaCheia)}`, moeda(valorEnergiaCheia)],
-          ["2", `DESCONTO CONTRATADO\n- ${percentual(descontoContratado)}`, moeda(valorAndradeAntesAbsorcoes)],
+          ["2", `${fatura.meta_desconto_real_percentual != null ? "DESCONTO APLICADO" : "DESCONTO CONTRATADO"}\n- ${percentual(descontoContratado)}`, moeda(valorAndradeAntesAbsorcoes)],
           ["3", rotuloAbsorcao, `- ${moeda(valorTotalAbsorvido)}`],
           ["4", "TOTAL ANDRADE ENERGY", moeda(valorTotal)],
         ];
@@ -671,14 +673,16 @@ export async function gerarPdfRelatorioCalculo(fatura: any) {
     pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica-Bold").fontSize(7).text("SEM ANDRADE ENERGY", 340, 238);
     pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(16).text(moeda(referenciaSemAndrade), 340, 252);
     pdf.fillColor(VERDE).font("Helvetica-Bold").fontSize(9).text(`Economia ${moeda(economia)}`, 340, 278);
-    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(7.5).text(`Contratado ${percentual(descontoContratado)} · Real ${percentual(descontoReal)}`, 340, 296, { width: 188, height: 12, ellipsis: true });
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(7.5).text(fatura.meta_desconto_real_percentual != null
+      ? `Meta ${percentual(numero(fatura.meta_desconto_real_percentual))} · Aplicado ${percentual(descontoContratado)} · Real ${percentual(descontoReal)}`
+      : `Contratado ${percentual(descontoContratado)} · Real ${percentual(descontoReal)}`, 340, 296, { width: 188, height: 12, ellipsis: true });
 
     pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(10).text("1. BASE DE ENERGIA", 48, 352);
     cartao(48, 370, 498, 116, "#FFFFFF");
     linha(modalidade === "INJECAO" ? "Energia injetada faturada" : "Energia compensada faturada", energia(energiaBase), 389, true);
     linha("Tarifa cheia da concessionária (tributos incluídos)", tarifaKwh(tarifaCheia), 412);
     linha("Valor equivalente da energia sem o benefício", `${energia(energiaBase)} × ${tarifaKwh(tarifaCheia)} = ${moeda(valorEnergiaCheia)}`, 435);
-    linha("Tarifa Andrade após desconto contratado", tarifaKwh(tarifaAndrade), 458);
+    linha("Tarifa Andrade após desconto aplicado", tarifaKwh(tarifaAndrade), 458);
 
     pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(10).text("2. REGRAS DA CONFIGURAÇÃO", 48, 510);
     cartao(48, 528, 498, 134, "#FFF9E9");
