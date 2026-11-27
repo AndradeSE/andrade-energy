@@ -11,6 +11,7 @@ export function configuracaoVigenteParaFaturamento(unidade: any, contratoPendent
     usina_id: anterior.usina_id ?? unidade.usina_id,
     modalidade_faturamento: anterior.modalidade_faturamento ?? unidade.modalidade_faturamento,
     desconto_percentual: anterior.desconto_percentual ?? contratoPendente.desconto ?? unidade.desconto_percentual,
+    meta_desconto_real_percentual: anterior.meta_desconto_real_percentual ?? null,
     percentual_rateio: anterior.percentual_rateio ?? unidade.percentual_rateio,
     fatura_somente_andrade: anterior.fatura_somente_andrade ?? unidade.fatura_somente_andrade,
     repassar_disponibilidade_gd1: anterior.repassar_disponibilidade_gd1 ?? unidade.repassar_disponibilidade_gd1,

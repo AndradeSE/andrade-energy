@@ -10,6 +10,7 @@ import {
   detalharFaturaController,
   listarFaturasController,
   excluirFaturaController,
+  registrarBaixaFaturaController,
   confirmarFaturaRascunhoController,
   regenerarDocumentosFaturaController,
   criarFaturaManualController,
@@ -48,6 +49,7 @@ router.get("/:id/encargos-boleto", exigirContratoDaUc, async (req, res) => {
 });
 router.get("/:id", exigirContratoDaUc, detalharFaturaController);
 router.delete("/:id", exigirGestor, excluirFaturaController);
+router.post("/:id/baixa", exigirGestor, registrarBaixaFaturaController);
 router.post("/:id/confirmar", exigirGestor, confirmarFaturaRascunhoController);
 router.post("/:id/regenerar-documentos", exigirGestor, regenerarDocumentosFaturaController);
 router.post("/manual/criar", exigirGestor, criarFaturaManualController);

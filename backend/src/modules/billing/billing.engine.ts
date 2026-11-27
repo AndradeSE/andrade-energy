@@ -214,3 +214,20 @@ export function calcularFaturaUnificada(input: BillingInput): BillingOutput {
     descontoRealPercentual: arredondar(descontoRealPercentual, 4),
   };
 }
+
+export function calcularFaturaComMetaReal(input: BillingInput, meta: number): BillingOutput {
+  const peloTeto = calcularFaturaUnificada(input);
+  if (input.energiaCompensada <= 0 || !Number.isFinite(meta) || meta < 0 || peloTeto.descontoRealPercentual <= meta) {
+    return peloTeto;
+  }
+  let minimo = 0;
+  let maximo = Math.floor(input.descontoPercentual * 100);
+  while (minimo < maximo) {
+    const meio = Math.floor((minimo + maximo) / 2);
+    const resultado = calcularFaturaUnificada({ ...input, descontoPercentual: meio / 100 });
+    if (resultado.descontoRealPercentual >= meta) maximo = meio;
+    else minimo = meio + 1;
+  }
+  const resultado = calcularFaturaUnificada({ ...input, descontoPercentual: minimo / 100 });
+  return resultado.descontoRealPercentual >= meta ? resultado : peloTeto;
+}

@@ -5,6 +5,7 @@ import {
   analisarFatura,
   detalharFatura,
   excluirFatura,
+  registrarBaixaFatura,
   regenerarDocumentosFatura,
   confirmarFaturaRascunho,
   listarFaturas,
@@ -37,6 +38,11 @@ export async function criarFaturaManualController(req: Request, res: Response) {
     }
     return res.status(201).json(resultado);
   } catch (err: any) { return res.status(400).json({ message: err.message }); }
+}
+
+export async function registrarBaixaFaturaController(req: Request, res: Response) {
+  try { return res.json(await registrarBaixaFatura(req.params.id, empresaIdDaRequisicao(req))); }
+  catch (err: any) { return res.status(400).json({ message: err.message }); }
 }
 
 export async function excluirFaturaController(req: Request, res: Response) {
