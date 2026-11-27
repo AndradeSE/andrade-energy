@@ -37,6 +37,7 @@ export function preencherModeloContrato(unidade: any, contrato: any) {
   const somente = cfg.fatura_somente_andrade === true;
   const consumidorTitular = ["CLIENTE", "CONSUMIDOR"].includes(String(cfg.titularidade_ucs ?? d.titularidade_ucs ?? u.titularidade_ucs_recebedoras).toUpperCase());
   const gd2 = String(u.tipo_gd ?? cfg.tipo_gd).toUpperCase() === "GD2";
+  const metaReal = gd2 && cfg.meta_desconto_real_percentual != null ? numero(cfg.meta_desconto_real_percentual) : null;
   const devolveDisponibilidade = (gd2 ? cfg.repassar_disponibilidade_gd2 : cfg.repassar_disponibilidade_gd1) === false;
   const devolveFio = gd2 && cfg.repassar_diferenca_fio_b_gd2 === false;
   const devolucoes = [devolveDisponibilidade ? "custo de disponibilidade" : "", devolveFio ? "Fio B" : ""].filter(Boolean);
@@ -80,7 +81,10 @@ export function preencherModeloContrato(unidade: any, contrato: any) {
     if (titulo.includes("DA RESCISÃO")) return "O LOCATÁRIO poderá solicitar a saída a qualquer momento, mediante comunicação escrita com antecedência de 90 (noventa) dias, sem multa por fidelidade. Durante o aviso prévio serão observadas as condições contratadas e os procedimentos da distribuidora. A rescisão também poderá ocorrer por comum acordo, inadimplemento, descumprimento contratual ou inviabilidade regulatória. O encerramento não extingue valores efetivamente devidos.";
     return texto;
   };
-  const substituir = (s: string) => s.replace(/\{\{([A-Z_]+)\}\}/g, (_, chave) => {
+  const substituir = (s: string) => (metaReal === null ? s : s
+    .replace("com desconto de {{DESCONTO}}%", `com desconto real aproximado de ${formatar(metaReal)}%, apurado a cada competência`)
+    .replace("{{FORMULA}}", "A remuneração da energia é calculada pela energia de referência multiplicada pela tarifa integral e pelo fator resultante do desconto aplicado. O percentual aplicado é calculado a cada competência para aproximar a economia da meta, considerando a disponibilidade e o Fio B. A memória de cálculo informa a meta, o percentual aplicado e a economia apurada."))
+    .replace(/\{\{([A-Z_]+)\}\}/g, (_, chave) => {
     if (!(chave in tokens)) throw new Error(`Campo de modelo desconhecido: ${chave}`);
     return tokens[chave];
   });

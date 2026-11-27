@@ -478,8 +478,8 @@ export async function alocarUnidadeNaUsina(usinaId: string, input: any, empresaI
   const metaDesconto = input.metaDescontoReal === undefined
     ? unidadeAnterior?.meta_desconto_real_percentual ?? null
     : input.metaDescontoReal === null ? null : Number(input.metaDescontoReal);
-  if (metaDesconto !== null && (!Number.isFinite(metaDesconto) || metaDesconto < 0 || metaDesconto > desconto)) {
-    throw new Error("A meta de desconto real deve estar entre zero e o desconto bruto contratado.");
+  if (metaDesconto !== null && (!Number.isFinite(metaDesconto) || metaDesconto < 0 || metaDesconto > 100)) {
+    throw new Error("A meta de desconto real deve estar entre 0% e 100%.");
   }
   const somenteAndrade = input.faturaSomenteAndrade === undefined
     ? Boolean(unidadeAnterior?.fatura_somente_andrade)

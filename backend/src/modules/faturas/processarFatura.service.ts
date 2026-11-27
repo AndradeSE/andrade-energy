@@ -310,7 +310,14 @@ if (!cliente.usina_id) {
   };
   const metaReal = cliente.unidade_consumidora?.meta_desconto_real_percentual;
   const calculo = energiaCompensadaGD2 > 0 && metaReal != null
-    ? calcularFaturaComMetaReal(entradaCalculo, Number(metaReal))
+    ? calcularFaturaComMetaReal({
+        ...entradaCalculo,
+        descontoPercentual: 100,
+        percentualRepasseDisponibilidade: 100,
+        repassarCustoDisponibilidade: true,
+        repassarCustoDisponibilidadeGD2: true,
+        repassarDiferencaFioBGD2: true,
+      }, Number(metaReal))
     : calcularFaturaUnificada(entradaCalculo);
 
 // Reimportações preservam a data já emitida; revisões sem aceite não antecipam cobrança.
@@ -382,6 +389,8 @@ const fatura = await inserirFatura({
 
   desconto_percentual:
     calculo.descontoContratadoPercentual,
+
+  meta_desconto_real_percentual: energiaCompensadaGD2 > 0 && metaReal != null ? Number(metaReal) : null,
 
   desconto_contratado_percentual:
     calculo.descontoContratadoPercentual,
