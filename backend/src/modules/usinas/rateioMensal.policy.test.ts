@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { proporRateioMensal, csvRateioMensal, csvCemigRateio, documentoDaTitularidade, pendenciasCsvCemig } from "./rateioMensal.policy";
+import { consumoParaRateio, proporRateioMensal, csvRateioMensal, csvCemigRateio, documentoDaTitularidade, pendenciasCsvCemig } from "./rateioMensal.policy";
 
 test("demanda exata sem 15%, resto somente para âncora e soma 100%", () => {
   const p = proporRateioMensal(10000, [{ numero: "123456789012", consumo_medio_kwh: 1000 }], "987654321012");
@@ -101,4 +101,16 @@ test("arredondamento a zero nunca coloca recebedora com cota zero no CSV", () =>
  assert.equal(plano.linhas[0].percentual,100);
  assert.ok(plano.energiaNaoAtendida>0);
  assert.doesNotMatch(csvCemigRateio(plano,"456789123012","52998224725",true),/123456789012/);
+});
+
+test("prioriza o consumo do mês, depois a última fatura válida da UC e por fim o cadastro", () => {
+  const unidade = { id: "u1", cliente_id: "c1", numero: "123456", consumo_medio_kwh: 120 };
+  const anterior = { cliente_id: "c1", numero_instalacao: "123456", referencia: "OUT/2026", consumo: 180, status: "PAGO" };
+  const atual = { ...anterior, unidade_consumidora_id: "u1", referencia: "NOV/2026", consumo_kwh: 210, status: "ABERTA" };
+  const futuro = { ...atual, referencia: "DEZ/2026", consumo_kwh: 500 };
+  const outraUc = { ...atual, unidade_consumidora_id: "u2", consumo_kwh: 999 };
+  const cancelada = { ...atual, status: "CANCELADA", consumo_kwh: 700 };
+  assert.equal(consumoParaRateio(unidade, "2026-11", [anterior, futuro, atual, outraUc, cancelada]), 210);
+  assert.equal(consumoParaRateio(unidade, "2026-11", [futuro, outraUc, cancelada, anterior]), 180);
+  assert.equal(consumoParaRateio(unidade, "2026-11", [futuro, outraUc, cancelada]), 120);
 });

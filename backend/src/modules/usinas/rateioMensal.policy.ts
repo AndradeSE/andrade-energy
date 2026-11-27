@@ -1,3 +1,28 @@
+import { chaveCompetencia } from "../dashboard/competencia.policy";
+import { faturaValida } from "./rateioAutomatico.policy";
+
+export function consumoParaRateio(
+  unidade: { id: string; cliente_id?: string | null; numero: unknown; consumo_medio_kwh?: unknown },
+  competencia: string,
+  faturas: ReadonlyArray<{ cliente_id?: string | null; unidade_consumidora_id?: string | null; numero_instalacao?: unknown; referencia?: unknown; status?: unknown; consumo_kwh?: unknown; consumo?: unknown; created_at?: string | null }>,
+) {
+  const numero = String(unidade.numero).replace(/\D/g, "");
+  let ultima: { mes: string; criada: string; consumo: number } | undefined;
+  for (const fatura of faturas) {
+    if (!unidade.cliente_id || fatura.cliente_id !== unidade.cliente_id || !faturaValida(fatura.status)) continue;
+    const mesmaUc = fatura.unidade_consumidora_id
+      ? fatura.unidade_consumidora_id === unidade.id
+      : Boolean(numero) && String(fatura.numero_instalacao ?? "").replace(/\D/g, "") === numero;
+    if (!mesmaUc) continue;
+    const mes = chaveCompetencia(String(fatura.referencia ?? ""));
+    const consumo = Number(fatura.consumo_kwh ?? fatura.consumo);
+    const criada = fatura.created_at ?? "";
+    if (!/^20\d{2}-(0[1-9]|1[0-2])$/.test(mes) || mes > competencia || !Number.isFinite(consumo) || consumo <= 0) continue;
+    if (!ultima || mes > ultima.mes || (mes === ultima.mes && criada > ultima.criada)) ultima = { mes, criada, consumo };
+  }
+  return ultima?.consumo ?? Number(unidade.consumo_medio_kwh);
+}
+
 export type DemandaRateio = { numero: string; nome?: string; consumo_medio_kwh: number; documento?: string; saldo_atual_kwh?:number; saldo_referencia?:string };
 
 export function documentoDaTitularidade(titularidade: unknown, documentoGerador: unknown, documentoCliente: unknown, documentoDaUc: unknown) {

@@ -1,6 +1,6 @@
 import { supabase } from "../../config/supabase";
 import { enviarEmailTransacional } from "../email/emailTransacional.service";
-import { proporRateioMensal, csvRateioMensal, csvCemigRateio, pendenciasCsvCemig, documentoDaTitularidade } from "./rateioMensal.policy";
+import { consumoParaRateio, proporRateioMensal, csvRateioMensal, csvCemigRateio, pendenciasCsvCemig, documentoDaTitularidade } from "./rateioMensal.policy";
 import { saldoAnteriorParaRateio, type LeituraSaldoRateio } from "./saldoRateio.policy";
 import {unidadesElegiveisNoCiclo} from "./rateioAutomatico.policy";
 import {atualizarBloqueioUc} from '../faturas/inadimplenciaUc.service';
@@ -43,7 +43,7 @@ export async function prepararPlanilhaRateio(usinaId: string, empresaId: string,
   const media = valores.reduce((s,n)=>s+n,0)/valores.length;
   const clientesIds=[...new Set((unidades.data ?? []).map(u=>u.cliente_id).filter(Boolean))];
   const [faturas,anexos]=clientesIds.length ? await Promise.all([
-    supabase.from("faturas").select("id,cliente_id,unidade_consumidora_id,numero_instalacao,referencia,saldo_atual,created_at,status,proxima_leitura,vencimento,cobrancas(status,pago_em)").eq("empresa_id",empresaId).in("cliente_id",clientesIds),
+    supabase.from("faturas").select("id,cliente_id,unidade_consumidora_id,numero_instalacao,referencia,consumo_kwh,consumo,saldo_atual,created_at,status,proxima_leitura,vencimento,cobrancas(status,pago_em)").eq("empresa_id",empresaId).in("cliente_id",clientesIds),
     supabase.from("faturas_anexadas_clientes").select("cliente_id,dados_fatura,criado_em").eq("empresa_id",empresaId).in("cliente_id",clientesIds),
   ]) : [{data:[],error:null},{data:[],error:null}];
   if(faturas.error)throw faturas.error;
@@ -67,7 +67,7 @@ export async function prepararPlanilhaRateio(usinaId: string, empresaId: string,
     const saldo=saldoAnteriorParaRateio(String(u.numero),String(u.cliente_id),competencia,leituras);
     if(saldo.semHistorico)saldosSemHistorico++;
     return {numero:String(u.numero),nome:u.apelido||`UC ${u.numero}`,
-      documento:documentoDaTitularidade(usina.titularidade_ucs_recebedoras,geradoraResult.data?.cpf_titular,cliente?.empresa_id===empresaId?cliente?.cpf:null,u.cpf_titular),consumo_medio_kwh:Number(u.consumo_medio_kwh),saldo_atual_kwh:saldo.saldo,saldo_referencia:saldo.referencia};
+      documento:documentoDaTitularidade(usina.titularidade_ucs_recebedoras,geradoraResult.data?.cpf_titular,cliente?.empresa_id===empresaId?cliente?.cpf:null,u.cpf_titular),consumo_medio_kwh:consumoParaRateio(u,competencia,faturas.data??[]),saldo_atual_kwh:saldo.saldo,saldo_referencia:saldo.referencia};
   }),ancora);
   const geradora=String(usina.numero_instalacao ?? "").replace(/\D/g,"");
   const pendencias=pendenciasCsvCemig(plano,geradora,documentoAncora,numerosAtuaisConfirmados);
