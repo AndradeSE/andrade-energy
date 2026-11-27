@@ -129,13 +129,16 @@ export async function registrarBaixaFatura(id: string, empresaId: string) {
   if (!cobranca?.asaas_payment_id) throw new Error("A fatura precisa de uma cobrança vinculada no Asaas.");
 
   const caminho = "/payments/" + encodeURIComponent(cobranca.asaas_payment_id);
-  type Pagamento = { status?: string; deleted?: boolean };
+  type Pagamento = { status?: string; deleted?: boolean; value?: number };
   let pagamento = await asaasRequest<Pagamento>(caminho);
   if (pagamento.deleted) throw new Error("A cobrança no Asaas foi excluída.");
   if (["PENDING", "OVERDUE"].includes(String(pagamento.status))) {
+    const value = Number(pagamento.value);
+    if (!Number.isFinite(value) || value <= 0) throw new Error("O Asaas não informou um valor válido para a baixa.");
+    const paymentDate = new Intl.DateTimeFormat("sv-SE", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
     pagamento = await asaasRequest<Pagamento>(caminho + "/receiveInCash", {
       method: "POST",
-      body: JSON.stringify({ notifyCustomer: false }),
+      body: JSON.stringify({ paymentDate, value, notifyCustomer: false }),
     });
   }
   if (!["RECEIVED_IN_CASH", "RECEIVED", "CONFIRMED"].includes(String(pagamento.status))) {
