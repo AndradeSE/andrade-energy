@@ -67,7 +67,19 @@ export async function criarConvite(input: any, gestor: any, documentos?: { minut
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("Informe um e-mail válido.");
   if (whatsapp === "") throw new Error("Informe um WhatsApp válido com DDD ou deixe o campo em branco.");
 
-  const { data: clienteExistente } = await supabase.from("clientes").select("id").eq("empresa_id", empresaId).eq("cpf", cpf).limit(1).maybeSingle();
+  const { data: unidade, error: erroUnidade } = await supabase
+    .from("unidades_consumidoras").select("cliente_id")
+    .eq("id", unidadeConsumidoraId).eq("empresa_id", empresaId).maybeSingle();
+  if (erroUnidade) throw erroUnidade;
+  if (!unidade?.cliente_id) throw new Error("A UC do convite não possui cliente vinculado nesta empresa.");
+
+  const { data: clienteVinculado, error: erroCliente } = await supabase
+    .from("clientes").select("id,cpf")
+    .eq("id", unidade.cliente_id).eq("empresa_id", empresaId).maybeSingle();
+  if (erroCliente) throw erroCliente;
+  if (!clienteVinculado || cpfLimpo(clienteVinculado.cpf) !== cpf) {
+    throw new Error("O CPF informado não corresponde ao cliente vinculado à UC.");
+  }
   const { data: contaEmail } = await supabase
     .from("usuarios")
     .select("id,cliente_id,perfil")
@@ -98,7 +110,7 @@ export async function criarConvite(input: any, gestor: any, documentos?: { minut
     empresa_id: empresaId,
     usina_id: gestor.usina_id ?? input.usina_id ?? null,
     unidade_consumidora_id: unidadeConsumidoraId,
-    cliente_id: clienteExistente?.id ?? null,
+    cliente_id: clienteVinculado.id,
     nome, cpf, email, telefone: whatsapp,
     token_hash: hashToken(token),
     expira_em: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
