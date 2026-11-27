@@ -7,7 +7,7 @@ export function contratoElegivelParaRateio(contrato:any) {
   return Boolean(contrato.aceite_cliente_em||contrato.contrato_assinado_url||contrato.status==="VIGENTE");
 }
 const digitos = (v: unknown) => String(v ?? "").replace(/\D/g, "");
-const faturaValida = (status: unknown) => !["RASCUNHO","CANCELADO","CANCELADA","ERRO","PROCESSANDO"].includes(String(status).toUpperCase());
+export const faturaValida = (status: unknown) => !["RASCUNHO","CANCELADO","CANCELADA","ERRO","PROCESSANDO"].includes(String(status).toUpperCase());
 const dataLocal = new Intl.DateTimeFormat("sv-SE", {timeZone:"America/Sao_Paulo",year:"numeric",month:"2-digit",day:"2-digit"});
 
 function dia(valor?: string | null) {
