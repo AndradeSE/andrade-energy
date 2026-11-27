@@ -478,6 +478,22 @@ export async function buscarClientePorUC(uc: string, empresaId?: string) {
       .maybeSingle();
     if (erroContrato) throw erroContrato;
     const unidadeParaFaturamento = configuracaoVigenteParaFaturamento(unidade, contratoVigente);
+    let metaAceita = unidadeParaFaturamento.meta_desconto_real_percentual;
+    if (!contratoVigente && unidadeParaFaturamento.meta_desconto_real_percentual != null) {
+      const { data: contratoAceito, error } = await supabase.from("contratos")
+        .select("configuracao_uc_snapshot,dados_documento")
+        .eq("empresa_id", unidade.empresa_id)
+        .eq("unidade_consumidora_id", unidade.id)
+        .in("status", ["ATIVO", "VIGENTE"])
+        .or("aceite_cliente_em.not.is.null,contrato_assinado_url.not.is.null,status.eq.VIGENTE")
+        .order("vigencia_inicio", { ascending: false, nullsFirst: false })
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      const configuracaoAceita = contratoAceito?.configuracao_uc_snapshot ?? contratoAceito?.dados_documento?.configuracao_uc;
+      metaAceita = configuracaoAceita?.meta_desconto_real_percentual ?? null;
+    }
     return {
       ...unidade.clientes,
       usina_id: unidadeParaFaturamento.usina_id ?? unidade.clientes.usina_id,
@@ -485,7 +501,7 @@ export async function buscarClientePorUC(uc: string, empresaId?: string) {
         unidadeParaFaturamento.modalidade_faturamento ?? unidade.clientes.modalidade_faturamento,
       desconto_percentual:
         unidadeParaFaturamento.desconto_percentual ?? unidade.clientes.desconto_percentual,
-      unidade_consumidora: unidadeParaFaturamento,
+      unidade_consumidora: { ...unidadeParaFaturamento, meta_desconto_real_percentual: metaAceita },
     };
   }
 

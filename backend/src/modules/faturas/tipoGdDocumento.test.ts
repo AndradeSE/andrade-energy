@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { identificarTipoGdDocumento, rotuloTipoGdDocumento } from "./tipoGdDocumento";
+import { calcularFaturaComMetaReal } from "../billing/billing.engine";
 
 test("memória de injeção GD2 não vira GD1 quando não há custos ou diferença de tarifa", () => {
   const fatura = { modalidade_faturamento: "INJECAO", custo_disponibilidade: 0, tarifa_gd: 1, tarifa_cheia: 1, unidades_consumidoras: { tipo_gd: "GD2" } };
@@ -19,6 +20,36 @@ test("identificação mista e configuração da usina não dependem do modelo de
 });
 test("sem evidência de enquadramento, documento não afirma GD1", () => {
   assert.equal(rotuloTipoGdDocumento(identificarTipoGdDocumento({ custo_disponibilidade: 100 })), "GD não informado");
+});
+
+test("meta GD II de 20% acompanha contrato, fatura e memória de cálculo", async () => {
+  process.env.SUPABASE_URL ||= "https://test.invalid";
+  process.env.SUPABASE_SERVICE_KEY ||= "test-placeholder";
+  const { gerarPdfFatura, gerarPdfRelatorioCalculo } = await import("./documentosFatura.service.js");
+  const { preencherModeloContrato } = await import("../contratos/modeloContrato.js");
+  const { extrairTextoDoBuffer } = await import("../../services/ocr/ocr.service.js");
+  const calculo = calcularFaturaComMetaReal({
+    modalidade: "COMPENSACAO", energiaCompensada: 300, energiaInjetada: 0, tarifaCheia: 1,
+    descontoPercentual: 100, valorCemig: 60, valorEnergiaConcessionaria: 60,
+  }, 20);
+  const unidade = { tipo_gd: "GD2", desconto_percentual: 40, meta_desconto_real_percentual: 20 };
+  const contrato = preencherModeloContrato(unidade, {});
+  const clausulas = contrato.clausulas.map(c => c.text).join("\n");
+  assert.match(clausulas, /desconto real aproximado de 20(?:,00)?%/i);
+  assert.doesNotMatch(clausulas, /com desconto de 40(?:,00)?%/i);
+  const fatura = {
+    referencia: "2026-11", modalidade_faturamento: "COMPENSACAO", energia_compensada_gd2: 300,
+    energia_compensada: 300, base_calculo_kwh: 300, tarifa_cheia: 1, tarifa_andrade: calculo.tarifaAndrade,
+    valor_andrade: calculo.valorUsina, valor_usina: calculo.valorUsina, valor_cemig: 60,
+    valor_total_unificado: calculo.valorTotalUnificado, economia_real: calculo.economiaReal,
+    desconto_contratado_percentual: calculo.descontoContratadoPercentual,
+    desconto_real_percentual: calculo.descontoRealPercentual, meta_desconto_real_percentual: 20,
+    unidades_consumidoras: unidade,
+  };
+  const pdf = await extrairTextoDoBuffer(await gerarPdfFatura(fatura, "UNIFICADA"));
+  assert.match(pdf, /Desconto real aproximado:\s*20(?:,00)?%/);
+  const memoria = await extrairTextoDoBuffer(await gerarPdfRelatorioCalculo(fatura));
+  assert.match(memoria, /Meta\s*20(?:,00)?%.*Aplicado\s*40(?:,00)?%.*Real\s*20(?:,00)?%/);
 });
 
 test("PDF real de injeção exibe GD II e preserva os valores registrados", async () => {
