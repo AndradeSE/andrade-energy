@@ -84,3 +84,20 @@ test("proposta comercial ocupa exatamente duas paginas", async () => {
   const paginas = pdf.toString("latin1").match(/\/Type\s*\/Page\b/g) ?? [];
   assert.equal(paginas.length, 2);
 });
+
+test("projeta a meta real GD2 com disponibilidade e Fio B repassados", () => {
+  const resultado = calcularPropostaComercial({
+    ...base,
+    consumo: 300,
+    tarifaCheia: 1,
+    descontoContratado: 34,
+    metaDescontoReal: 20,
+    custoDisponibilidade: 15,
+    diferencaFioB: 45,
+    absorveDisponibilidade: false,
+    absorveFioB: false,
+  });
+  assert.equal(resultado.descontoContratado, 40);
+  assert.equal(resultado.descontoReal, 20);
+  assert.equal(resultado.economiaMensal, 60);
+});
