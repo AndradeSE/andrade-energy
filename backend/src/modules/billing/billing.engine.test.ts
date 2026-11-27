@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { calcularEnergiaInjetadaPelosSaldos } from "./energiaInjetada";
-import { calcularDiferencaFioB, calcularFaturaUnificada } from "./billing.engine";
+import { calcularDiferencaFioB, calcularFaturaComMetaReal, calcularFaturaUnificada } from "./billing.engine";
 
 const base = {
   modalidade: "COMPENSACAO" as const,
@@ -14,6 +14,14 @@ const base = {
   custoDisponibilidadeRepassavel: 60,
   diferencaFioBRepassavel: 90,
 };
+
+test("meta real GD II ajusta o desconto bruto dentro do teto contratado", () => {
+  const input = {...base, valorCemig: 0, custoDisponibilidadeRepassavel: 0, diferencaFioBRepassavel: 0};
+  const resultado = calcularFaturaComMetaReal(input, 20);
+  assert.equal(resultado.descontoRealPercentual, 20);
+  assert.equal(resultado.descontoContratadoPercentual, 20);
+  assert.deepEqual(calcularFaturaComMetaReal(input, 50), calcularFaturaUnificada(input));
+});
 
 test("calcula o Fio B pela diferença entre SCEE e compensação GD II", () => {
   assert.equal(calcularDiferencaFioB(303, 0.62352, 0.4626174), 48.75);

@@ -429,7 +429,7 @@ export async function alocarUnidadeNaUsina(usinaId: string, input: any, empresaI
       .single(),
     supabase
       .from("unidades_consumidoras")
-      .select("id,usina_id,cliente_id,modalidade_faturamento,endereco,cpf_titular,percentual_repasse_disponibilidade,fatura_somente_andrade,plano_contrato,repassar_disponibilidade_gd1,repassar_disponibilidade_gd2,repassar_diferenca_fio_b_gd2,tipo_gd")
+      .select("id,usina_id,cliente_id,modalidade_faturamento,endereco,cpf_titular,percentual_repasse_disponibilidade,fatura_somente_andrade,plano_contrato,repassar_disponibilidade_gd1,repassar_disponibilidade_gd2,repassar_diferenca_fio_b_gd2,tipo_gd,meta_desconto_real_percentual")
       .eq("numero", numero)
       .eq("empresa_id", empresaId)
       .maybeSingle(),
@@ -475,6 +475,12 @@ export async function alocarUnidadeNaUsina(usinaId: string, input: any, empresaI
   }
 
   const planoContrato = normalizarPlanoContrato(input.planoContrato ?? unidadeAnterior?.plano_contrato);
+  const metaDesconto = input.metaDescontoReal === undefined
+    ? unidadeAnterior?.meta_desconto_real_percentual ?? null
+    : input.metaDescontoReal === null ? null : Number(input.metaDescontoReal);
+  if (metaDesconto !== null && (!Number.isFinite(metaDesconto) || metaDesconto < 0 || metaDesconto > desconto)) {
+    throw new Error("A meta de desconto real deve estar entre zero e o desconto bruto contratado.");
+  }
   const somenteAndrade = input.faturaSomenteAndrade === undefined
     ? Boolean(unidadeAnterior?.fatura_somente_andrade)
     : Boolean(input.faturaSomenteAndrade);
@@ -547,6 +553,7 @@ export async function alocarUnidadeNaUsina(usinaId: string, input: any, empresaI
       modalidade_faturamento: modalidade,
       plano_contrato: planoContrato,
       desconto_percentual: desconto,
+      meta_desconto_real_percentual: metaDesconto,
       consumo_medio_kwh: consumoMedio,
       percentual_rateio: percentual,
       percentual_repasse_disponibilidade: percentualRepasseDisponibilidade,
@@ -578,6 +585,7 @@ export async function alocarUnidadeNaUsina(usinaId: string, input: any, empresaI
     usina_id: usinaId,
     modalidade_faturamento: modalidade,
     desconto_percentual: desconto,
+    meta_desconto_real_percentual: metaDesconto,
     tipo_gd: tipoGd,
     percentual_rateio: percentual,
     percentual_repasse_disponibilidade: percentualRepasseDisponibilidade,

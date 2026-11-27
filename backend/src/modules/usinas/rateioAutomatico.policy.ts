@@ -53,11 +53,39 @@ export function unidadesElegiveisNoCiclo<T extends {id:string;numero:string;clie
   });
 }
 
-export function competenciaRateioCompleta(competencia:string,unidades:UcEsperada[],faturas:any[],producoes:any[]) {
+export function faturasPendentesParaRateio(competencia: string, unidades: UcEsperada[], faturas: any[]) {
+  const chave = (cliente: string, numero: unknown) => JSON.stringify([cliente, digitos(numero)]);
+  const faturadas = new Set(faturas
+    .filter(fatura => chaveCompetencia(fatura.referencia) === competencia && faturaValida(fatura.status))
+    .map(fatura => chave(fatura.cliente_id, fatura.numero_instalacao)));
+  return unidades.filter(unidade => !faturadas.has(chave(unidade.cliente_id, unidade.numero)));
+}
+
+export function unidadesQueAguardamFatura<T extends UcEsperada & {created_at?: string | null}>(unidades: T[], agora = new Date()) {
+  const limite = new Date(agora.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const diaLimite = dataLocal.format(limite);
+  return unidades.filter(unidade => {
+    const cadastro = dia(unidade.created_at);
+    return !cadastro || cadastro < diaLimite;
+  });
+}
+
+export function proximaLeituraPendente(competencia: string, unidades: UcEsperada[], faturas: any[]) {
+  const anterior = new Date(`${competencia}-01T00:00:00Z`);
+  anterior.setUTCMonth(anterior.getUTCMonth() - 1);
+  const referencia = anterior.toISOString().slice(0, 7);
+  const pendentes = new Set(unidades.map(u => JSON.stringify([u.cliente_id, digitos(u.numero)])));
+  return faturas
+    .filter(f => faturaValida(f.status) && chaveCompetencia(f.referencia) === referencia
+      && pendentes.has(JSON.stringify([f.cliente_id, digitos(f.numero_instalacao)])))
+    .map(f => dia(f.proxima_leitura))
+    .filter(data => data.startsWith(competencia + "-"))
+    .sort()[0] ?? null;
+}
+
+export function competenciaRateioCompleta(competencia:string,unidades:(UcEsperada & {created_at?:string|null})[],faturas:any[],producoes:any[]) {
   if(!unidades.length || unidades.some(u=>!u.cliente_id) || !producoes.some(p=>chaveCompetencia(p.competencia)===competencia && Number(p.energia_gerada)>0 && !!p.fatura_usina_validada_em && Number(p.energia_gerada_fatura)===Number(p.energia_gerada)))return false;
-  const digitos=(v:unknown)=>String(v??"").replace(/\D/g,"");
-  return unidades.every(u=>faturas.some(f=>chaveCompetencia(f.referencia)===competencia && digitos(f.numero_instalacao)===digitos(u.numero)
-    && f.cliente_id===u.cliente_id && !["RASCUNHO","CANCELADO","CANCELADA","ERRO","PROCESSANDO"].includes(String(f.status).toUpperCase())));
+  return faturasPendentesParaRateio(competencia,unidadesQueAguardamFatura(unidades),faturas).length===0;
 }
 
 

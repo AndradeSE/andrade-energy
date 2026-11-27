@@ -7,6 +7,8 @@ import { buscarUsina } from "../usinas/usinas.repository";
 import {
   calcularDiferencaFioB,
   calcularFaturaUnificada,
+  calcularFaturaComMetaReal,
+  type BillingInput,
   ModalidadeFaturamento,
 } from "../billing/billing.engine";
 import {
@@ -278,7 +280,7 @@ if (!cliente.usina_id) {
   const creditosPagos = modalidade === 'COMPENSACAO'
     ? await consultarCreditosPagos(cliente.empresa_id, cliente.unidade_consumidora.id, dados.uc, cliente.id, energiaCompensadaFaturada, dados.referencia)
     : null;
-  const calculo = calcularFaturaUnificada({
+  const entradaCalculo: BillingInput = {
     modalidade,
     creditosPagosUtilizadosKwh: creditosPagos?.utilizado_kwh ?? 0,
     energiaInjetada: energiaInjetadaCalculada,
@@ -305,7 +307,11 @@ if (!cliente.usina_id) {
         : energiaCompensadaGD2 > 0
           ? valorEnergiaSemGD
           : valorCreditoEfetivo,
-  });
+  };
+  const metaReal = cliente.unidade_consumidora?.meta_desconto_real_percentual;
+  const calculo = energiaCompensadaGD2 > 0 && metaReal != null
+    ? calcularFaturaComMetaReal(entradaCalculo, Number(metaReal))
+    : calcularFaturaUnificada(entradaCalculo);
 
 // Reimportações preservam a data já emitida; revisões sem aceite não antecipam cobrança.
 vencimento = vencimentoEmissao;

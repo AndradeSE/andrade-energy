@@ -112,6 +112,42 @@ export async function detalharFatura(id: string, empresaId?: string, consumidor 
   }, consumidor);
 }
 
+export async function registrarBaixaFatura(id: string, empresaId: string) {
+  const sandboxObrigatorio = process.env.CONTINGENCY_ENVIRONMENT === "preview"
+    || process.env.SUPABASE_URL?.includes("qqhcjieymypowunkixmk.supabase.co");
+  if (sandboxObrigatorio && new URL(process.env.ASAAS_API_URL ?? "https://api-sandbox.asaas.com/v3").origin !== "https://api-sandbox.asaas.com") {
+    throw new Error("A baixa em homologação exige o sandbox do Asaas.");
+  }
+  const fatura = await buscarFaturaPorId(id, empresaId);
+  if (!fatura) throw new Error("Fatura não encontrada.");
+  if (!["ABERTA", "PENDENTE", "VENCIDA", "PAGO"].includes(String(fatura.status))) {
+    throw new Error("O estado da fatura não permite registrar a baixa.");
+  }
+  const { data: cobranca, error } = await supabase.from("asaas_cobrancas")
+    .select("asaas_payment_id").eq("fatura_id", id).eq("empresa_id", empresaId).maybeSingle();
+  if (error) throw error;
+  if (!cobranca?.asaas_payment_id) throw new Error("A fatura precisa de uma cobrança vinculada no Asaas.");
+
+  const caminho = "/payments/" + encodeURIComponent(cobranca.asaas_payment_id);
+  type Pagamento = { status?: string; deleted?: boolean };
+  let pagamento = await asaasRequest<Pagamento>(caminho);
+  if (pagamento.deleted) throw new Error("A cobrança no Asaas foi excluída.");
+  if (["PENDING", "OVERDUE"].includes(String(pagamento.status))) {
+    pagamento = await asaasRequest<Pagamento>(caminho + "/receiveInCash", {
+      method: "POST",
+      body: JSON.stringify({ notifyCustomer: false }),
+    });
+  }
+  if (!["RECEIVED_IN_CASH", "RECEIVED", "CONFIRMED"].includes(String(pagamento.status))) {
+    throw new Error("O Asaas ainda não confirmou o pagamento.");
+  }
+  await supabase.from("asaas_cobrancas").update({status:pagamento.status,atualizado_em:new Date().toISOString()})
+    .eq("fatura_id",id).eq("empresa_id",empresaId).throwOnError();
+  await supabase.from("faturas").update({status:"PAGO"})
+    .eq("id",id).eq("empresa_id",empresaId).throwOnError();
+  return { sucesso: true };
+}
+
 export async function excluirFatura(id: string, empresaId?: string) {
   const fatura = await buscarFaturaPorId(id, empresaId);
   if (!fatura) throw new Error("Fatura não encontrada.");

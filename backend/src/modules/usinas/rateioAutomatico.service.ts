@@ -2,7 +2,7 @@ import {createHash} from "node:crypto";
 import {supabase} from "../../config/supabase";
 import {chaveCompetencia} from "../dashboard/competencia.policy";
 import {criarNotificacaoApp} from "../notificacoes/push.service";
-import {competenciaRateioCompleta,unidadesElegiveisNoCiclo,recebimentosSuspensosParaFechamento,type UcEsperada} from "./rateioAutomatico.policy";
+import {competenciaRateioCompleta,faturasPendentesParaRateio,proximaLeituraPendente,unidadesQueAguardamFatura,unidadesElegiveisNoCiclo,recebimentosSuspensosParaFechamento,type UcEsperada} from "./rateioAutomatico.policy";
 import {destinatarioDoRateio,prepararPlanilhaRateio,enviarPlanilhaAoGerador} from "./rateioMensal.service";
 
 async function todas(query:()=>any) {
@@ -25,7 +25,7 @@ export async function notificarRateioGerado(usinaId:string,empresaId:string,plan
     rota:`/operacao/rateio?competencia=${encodeURIComponent(plano.competencia)}&usinaId=${encodeURIComponent(usinaId)}`,chave_dedupe:`rateio:${empresaId}:${usinaId}:${plano.competencia}:${hash}`});
 }
 
-export async function obterConfiguracaoRateio(usinaId:string,empresaId:string) {
+export async function obterConfiguracaoRateio(usinaId:string,empresaId:string,competencia?:string) {
   const scope=await supabase.from("usinas").select("id").eq("id",usinaId).eq("empresa_id",empresaId).maybeSingle();
   if(scope.error)throw scope.error;
   if(!scope.data)throw new Error("Usina não encontrada nesta empresa.");
@@ -35,7 +35,10 @@ export async function obterConfiguracaoRateio(usinaId:string,empresaId:string) {
   if(config.error)throw config.error;
   const registros=await supabase.from("rateios_mensais_automaticos").select("competencia,status,gerado_em,email_status,erro").eq("empresa_id",empresaId).eq("usina_id",usinaId).order("competencia",{ascending:false}).limit(12);
   if(registros.error)throw registros.error;
-  return {...config.data,registros:registros.data??[]};
+  const progresso = competencia && /^20\d{2}-(0[1-9]|1[0-2])$/.test(competencia)
+    ? (await consultarFechamentoRateio(usinaId,empresaId,competencia)).progresso
+    : undefined;
+  return {...config.data,registros:registros.data??[],progresso};
 }
 
 export async function salvarConfiguracaoRateio(usinaId:string,empresaId:string,input:any) {
@@ -72,6 +75,10 @@ async function entregarGerado(registro:any) {
 
 export async function fechamentoRateioAtualCompleto(usina:string,empresa:string,competencia:string) {
   if(!/^20\d{2}-(0[1-9]|1[0-2])$/.test(competencia))return false;
+  return (await consultarFechamentoRateio(usina,empresa,competencia)).completo;
+}
+
+async function consultarFechamentoRateio(usina:string,empresa:string,competencia:string) {
   const [producoes,faturas,unidades,recebimentos,contratos]=await Promise.all([
     todas(()=>supabase.from("fechamentos").select("competencia,energia_gerada,energia_gerada_fatura,fatura_usina_validada_em").eq("empresa_id",empresa).eq("usina_id",usina).gte("competencia",`${competencia}-01`).order("competencia")),
     todas(()=>supabase.from("faturas").select("id,numero_instalacao,cliente_id,referencia,status,proxima_leitura").eq("empresa_id",empresa).eq("usina_id",usina).order("id")),
@@ -83,7 +90,13 @@ export async function fechamentoRateioAtualCompleto(usina:string,empresa:string,
   const recebidas=[...faturas,...recebimentosSuspensosParaFechamento(recebimentos,empresa,usina)];
 
   const esperadas=unidadesElegiveisNoCiclo(competencia,unidades,contratos,faturas,false) as UcEsperada[];
-  return competenciaRateioCompleta(competencia,esperadas,recebidas,producoes);
+  const obrigatorias = unidadesQueAguardamFatura(esperadas);
+  const pendentes = faturasPendentesParaRateio(competencia,obrigatorias,recebidas);
+  return {
+    completo: competenciaRateioCompleta(competencia,esperadas,recebidas,producoes),
+    progresso: {competencia,total:obrigatorias.length,restantes:pendentes.length,
+      proximaLeitura:proximaLeituraPendente(competencia,pendentes,faturas)},
+  };
 }
 
 async function processarUsina(config:any) {

@@ -252,7 +252,7 @@ export async function salvarContratoDaUnidadeService(
 ) {
   const { data: unidadeEncontrada, error: erroUnidade } = await supabase
     .from("unidades_consumidoras")
-    .select("id, empresa_id, numero, cliente_id, usina_id, desconto_percentual, plano_contrato, modalidade_faturamento, tipo_gd, percentual_rateio, percentual_repasse_disponibilidade, fatura_somente_andrade, repassar_disponibilidade_gd1, repassar_disponibilidade_gd2, repassar_diferenca_fio_b_gd2, usinas(titularidade_ucs_recebedoras)")
+    .select("id, empresa_id, numero, cliente_id, usina_id, desconto_percentual, meta_desconto_real_percentual, plano_contrato, modalidade_faturamento, tipo_gd, percentual_rateio, percentual_repasse_disponibilidade, fatura_somente_andrade, repassar_disponibilidade_gd1, repassar_disponibilidade_gd2, repassar_diferenca_fio_b_gd2, usinas(titularidade_ucs_recebedoras)")
     .eq("id", unidadeId)
     .maybeSingle();
 
@@ -313,6 +313,7 @@ export async function salvarContratoDaUnidadeService(
     usina_id: unidade.usina_id,
     modalidade_faturamento: unidade.modalidade_faturamento,
     desconto_percentual: desconto,
+    meta_desconto_real_percentual: unidade.meta_desconto_real_percentual ?? null,
     tipo_gd: unidade.tipo_gd,
     percentual_rateio: unidade.percentual_rateio,
     percentual_repasse_disponibilidade: unidade.percentual_repasse_disponibilidade,

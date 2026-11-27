@@ -145,7 +145,7 @@ router.get("/:id/dashboard", exigirUsinaDaSessaoOuGestor(), dashboardUsinaContro
 router.get("/:id/alocacao", exigirGestor, consultarAlocacaoController);
 router.get("/:id/rateio-configuracao",exigirGestor,async(req,res)=>{
   if(!acessoOperacao((req as any).usuario))return res.status(403).json({message:"Acesso à operação não autorizado."});
-  try{return res.json(await obterConfiguracaoRateio(req.params.id,empresaIdDaRequisicao(req)));}catch{return res.status(503).json({message:"Configuração do rateio automático indisponível. Tente novamente."});}
+  try{return res.json(await obterConfiguracaoRateio(req.params.id,empresaIdDaRequisicao(req),typeof req.query.competencia==="string"?req.query.competencia:undefined));}catch{return res.status(503).json({message:"Configuração do rateio automático indisponível. Tente novamente."});}
 });
 router.get("/:id/saldo-ancora",exigirGestor,async(req,res)=>{
   if(!acessoOperacao((req as any).usuario))return res.status(403).json({message:"Acesso à operação não autorizado."});
