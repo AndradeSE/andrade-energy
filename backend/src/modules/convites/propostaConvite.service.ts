@@ -32,6 +32,7 @@ export type EntradaCalculoProposta = {
   consumo: number;
   tarifaCheia: number;
   descontoContratado: number;
+  metaDescontoReal?: number;
   tipoGd: string;
   custoDisponibilidade: number;
   diferencaFioB: number;
@@ -50,16 +51,20 @@ export type EntradaCalculoProposta = {
 export function calcularPropostaComercial(entrada: EntradaCalculoProposta) {
   const consumo = Math.max(0, entrada.consumo);
   const tarifaCheia = Math.max(0, entrada.tarifaCheia);
-  const descontoContratado = Math.max(0, Math.min(100, entrada.descontoContratado));
   const base = consumo * tarifaCheia;
   const disponibilidade = Math.max(0, entrada.custoDisponibilidade);
   const fioB = String(entrada.tipoGd).toUpperCase() === "GD2" ? Math.max(0, entrada.diferencaFioB) : 0;
   const devolucoes = (entrada.absorveDisponibilidade ? disponibilidade : 0) + (entrada.absorveFioB ? fioB : 0);
+  const custosRepassados = disponibilidade + fioB - devolucoes;
+  const descontoNecessario = entrada.metaDescontoReal == null || base <= 0
+    ? entrada.descontoContratado
+    : entrada.metaDescontoReal + custosRepassados / base * 100;
+  const descontoContratado = Math.max(0, Math.min(100, descontoNecessario));
   const valorAndrade = Math.max(0, base * (1 - descontoContratado / 100) - devolucoes);
   const totalProjetado = valorAndrade + disponibilidade + fioB;
   const economiaMensal = Math.max(0, Math.min(base * descontoContratado / 100, base - totalProjetado));
   const descontoReal = base > 0 ? economiaMensal / base * 100 : 0;
-  return { base, disponibilidade, fioB, valorAndrade, totalProjetado, economiaMensal, descontoReal };
+  return { base, disponibilidade, fioB, valorAndrade, totalProjetado, economiaMensal, descontoReal, descontoContratado };
 }
 
 export function calcularEnergiaProjetadaContrato(input: {
@@ -137,7 +142,10 @@ export async function obterPropostaParaConvite(clienteId: string, empresaId: str
   });
   validarDadosDaProposta(consumo, tarifaCheia, modalidade);
   const tipoGd = String(usina?.tipo_gd ?? unidade.tipo_gd ?? dados.tipoGd ?? "GD1").toUpperCase();
-  const descontoContratado = Math.max(0, Math.min(100, n(unidade.desconto_percentual ?? cliente.desconto_percentual ?? 40)));
+  const descontoLegado = n(unidade.desconto_percentual ?? cliente.desconto_percentual ?? 40);
+  const metaDescontoReal = tipoGd === "GD2" && unidade.meta_desconto_real_percentual != null
+    ? n(unidade.meta_desconto_real_percentual)
+    : undefined;
   const base = consumo * tarifaCheia;
   const franquia = valor(dados, "franquiaDisponibilidadeKwh", "franquia_disponibilidade_kwh") || 30;
   const tarifaSemImpostos = valor(dados, "tarifaDisponibilidadeSemImpostos", "tarifa_disponibilidade_sem_impostos");
@@ -157,14 +165,15 @@ export async function obterPropostaParaConvite(clienteId: string, empresaId: str
   const resultado = calcularPropostaComercial({
     consumo,
     tarifaCheia,
-    descontoContratado,
+    descontoContratado: descontoLegado,
+    metaDescontoReal,
     tipoGd,
     custoDisponibilidade: disponibilidade,
     diferencaFioB: fioB,
-    absorveDisponibilidade: !repassaDisponibilidade,
-    absorveFioB: tipoGd === "GD2" && !repassaFioB,
+    absorveDisponibilidade: metaDescontoReal == null && !repassaDisponibilidade,
+    absorveFioB: metaDescontoReal == null && tipoGd === "GD2" && !repassaFioB,
   });
-  const { valorAndrade, economiaMensal, descontoReal } = resultado;
+  const { valorAndrade, economiaMensal, descontoReal, descontoContratado } = resultado;
   const possuiGd = valor(dados, "energiaCompensada", "energia_compensada", "energiaInjetada", "energia_injetada") > 0;
   const { data: faturas } = await supabase
     .from("faturas")
