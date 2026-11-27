@@ -19,6 +19,11 @@ export async function asaasRequest<T>(path: string, init: RequestInit = {}) {
   const apiKey = process.env.ASAAS_API_KEY;
   if (!apiKey) throw new Error("ASAAS_API_KEY não configurada.");
   const baseUrl = resolveAsaasBaseUrl(apiKey);
+  const homologacao = process.env.CONTINGENCY_ENVIRONMENT === "preview"
+    || process.env.SUPABASE_URL?.includes("qqhcjieymypowunkixmk.supabase.co");
+  if (homologacao && new URL(baseUrl).origin !== new URL(SANDBOX_URL).origin) {
+    throw new Error("A integração Asaas em homologação exige uma conta Sandbox.");
+  }
   const response = await fetch(`${baseUrl}${path}`, { ...init, headers: { accept: "application/json", access_token: apiKey, "Content-Type": "application/json", "User-Agent": "AndradeEnergy/1.0", ...(init.headers ?? {}) } });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
