@@ -10,7 +10,7 @@ export async function loadSelectionList(generator: boolean): Promise<any[]> {
     const plants = await listarUsinas();
     const [photos, capacities, units] = await Promise.all([
       AsyncStorage.multiGet(plants.map((plant: any) => `foto-card-usina:${plant.id}`)),
-      Promise.all(plants.map((plant: any) => consultarAlocacao(plant.id).then(value => value.disponivel).catch(() => null))),
+      Promise.all(plants.map((plant: any) => plant.capacidade_livre !== undefined ? Promise.resolve(null) : consultarAlocacao(plant.id).then(value => value.disponivel).catch(() => null))),
       listarUnidadesGestor().catch(() => []),
     ]);
     const photoMap = new Map(photos);
@@ -22,7 +22,7 @@ export async function loadSelectionList(generator: boolean): Promise<any[]> {
       if (!clients.has(plantId)) clients.set(plantId, new Set());
       clients.get(plantId)!.add(clientId);
     }
-    return plants.map((plant: any, index: number) => ({ ...plant, quantidade_clientes: clients.get(String(plant.id))?.size ?? 0, capacidade_livre: capacities[index], foto_card_local: photoMap.get(`foto-card-usina:${plant.id}`) || "" }));
+    return plants.map((plant: any, index: number) => ({ ...plant, quantidade_clientes: clients.get(String(plant.id))?.size ?? 0, capacidade_livre: plant.capacidade_livre === undefined ? capacities[index] : plant.capacidade_livre, foto_card_local: photoMap.get(`foto-card-usina:${plant.id}`) || "" }));
   }
   const [units, access] = await Promise.all([listarMinhasUnidades(), listarAcessoContratos().catch(() => [])]);
   const accessMap = new Map(access.map((item: any) => [String(item.id), item]));

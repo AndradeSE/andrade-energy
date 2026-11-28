@@ -17,7 +17,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAuth } from "../../contexts/AuthContext";
 import { listarFaturas } from "../../services/faturas.service";
-import { buscarDashboardUsina, consultarAlocacao } from "../../services/usinas.service";
+import { buscarDashboardUsina } from "../../services/usinas.service";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { isAssistantEnabled, isPreviewEnvironment } from "../../config/environment";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
@@ -180,10 +180,11 @@ export default function AppHeader({
   useFocusEffect(useCallback(() => {
     if (!proprietario || !usinaSelecionada?.id) { setAutonomia(null); return; }
     let ativo = true;
-    Promise.all([buscarDashboardUsina(usinaSelecionada.id), consultarAlocacao(usinaSelecionada.id)]).then(([dados, capacidade]) => {
+    buscarDashboardUsina(usinaSelecionada.id).then(dados => {
       if (!ativo) return;
-      const disponivel = Number(dados?.energiaDisponivel ?? 0);
-      setAutonomia({ percentual: Math.max(0, Math.min(100, Number(capacidade.disponivel))), disponivel });
+      if (!(Number(dados?.usina?.geracao_media) > 0) || !Number.isFinite(Number(dados.ocupacao))) { setAutonomia(null); return; }
+      const disponivel = Number(dados.energiaDisponivel ?? 0);
+      setAutonomia({ percentual: Math.max(0, Math.min(100, 100 - Number(dados.ocupacao))), disponivel });
     }).catch(() => { if (ativo) setAutonomia(null); });
     return () => { ativo = false; };
   }, [proprietario, usinaSelecionada?.id]));

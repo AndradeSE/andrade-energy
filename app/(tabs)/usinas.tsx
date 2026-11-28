@@ -30,10 +30,10 @@ export default function Usinas() {
       const lista = (await listarUsinas()) ?? [];
       const [fotos, capacidades] = await Promise.all([
         AsyncStorage.multiGet(lista.map((item: any) => `foto-card-usina:${item.id}`)),
-        Promise.all(lista.map((item: any) => consultarAlocacao(item.id).then((capacidade) => capacidade.disponivel).catch(() => null))),
+        Promise.all(lista.map((item: any) => item.capacidade_livre !== undefined ? Promise.resolve(null) : consultarAlocacao(item.id).then((capacidade) => capacidade.disponivel).catch(() => null))),
       ]);
       const porChave = new Map(fotos);
-      setUsinas(lista.map((item: any, index: number) => ({ ...item, capacidade_livre: capacidades[index], foto_card_local: porChave.get(`foto-card-usina:${item.id}`) || "" })));
+      setUsinas(lista.map((item: any, index: number) => ({ ...item, capacidade_livre: item.capacidade_livre === undefined ? capacidades[index] : item.capacidade_livre, foto_card_local: porChave.get(`foto-card-usina:${item.id}`) || "" })));
     } catch (erro: any) {
       setUsinas([]);
       Alert.alert("Não foi possível carregar as usinas", erro?.response?.data?.message ?? "Tente novamente em instantes.");
