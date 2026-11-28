@@ -22,9 +22,11 @@ export async function criarFaturaManualController(req: Request, res: Response) {
     if (obrigatorios.some((campo) => entrada[campo] === undefined || entrada[campo] === "")) {
       return res.status(400).json({ message: "Preencha UC, competência, vencimento, consumo, tarifa e valor da concessionária." });
     }
+    // O seletor de data da web envia ISO. O processamento também atende ao app e ao OCR.
+    const vencimento = String(entrada.vencimento).trim().replace(/^(\d{4})-(\d{2})-(\d{2})$/, "$3/$2/$1");
     const dados = {
       cliente: String(entrada.cliente), endereco: "", uc: String(entrada.uc).replace(/\D/g, ""), distribuidora: String(entrada.distribuidora || "CEMIG"),
-      referencia: String(entrada.referencia), vencimento: String(entrada.vencimento), consumo: Number(entrada.consumo), energiaInjetada: Number(entrada.energiaInjetada || 0),
+      referencia: String(entrada.referencia), vencimento, consumo: Number(entrada.consumo), energiaInjetada: Number(entrada.energiaInjetada || 0),
       energiaCompensada: Number(entrada.energiaCompensada || 0), energiaCompensadaGD1: Number(entrada.energiaCompensadaGD1 || 0), energiaCompensadaGD2: Number(entrada.energiaCompensadaGD2 || 0),
       saldoAnterior: Number(entrada.saldoAnterior || 0), saldoAtual: Number(entrada.saldoAtual || 0), valorTotal: Number(entrada.valorTotal), economia: 0,
       tarifaCheia: Number(entrada.tarifaCheia), tarifaGD: Number(entrada.tarifaGD || 0), custoDisponibilidade: Number(entrada.custoDisponibilidade || 0), bandeira: "", historico: [], debitos: [],
