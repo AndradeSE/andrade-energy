@@ -291,7 +291,6 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
     // total unificado + economia obtida. Não reutilize aqui a base energética
     // antiga, pois ela omite os componentes tributados da conta final.
     const valorSemAndrade = Math.max(0, valorTotalDoMes + economiaReal);
-    const descontoContratado = numero(fatura.desconto_contratado_percentual ?? fatura.desconto_percentual);
     const descontoReal = numero(fatura.desconto_real_percentual);
     const consumoKwh = numero(fatura.consumo_kwh ?? fatura.consumo);
     const energiaInjetada = numero(fatura.energia_injetada);
@@ -407,10 +406,7 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
     pdf.fillColor("#D8EEE6").font("Helvetica-Bold").fontSize(8).text("SEM ANDRADE ENERGY · COM IMPOSTOS", 326, y.total + 19);
     pdf.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(18).text(moeda(valorSemAndrade), 326, y.total + 33);
     pdf.fillColor("#F6CC32").font("Helvetica-Bold").fontSize(7).text(`Economia: ${moeda(economiaReal)}`, 326, y.total + 58);
-    pdf.fillColor("#D8EEE6").font("Helvetica").fontSize(6.2).text(fatura.meta_desconto_real_percentual != null
-      ? `Desconto real contratado: ${percentual(numero(fatura.meta_desconto_real_percentual))}`
-      : `Desconto real do mês: ${fatura.desconto_real_percentual == null ? "Não informado" : percentual(descontoReal)}`, 326, y.total + 69);
-    pdf.fillColor("#D8EEE6").font("Helvetica-Bold").fontSize(6.2).text(`Desconto aplicado na tarifa: ${fatura.desconto_contratado_percentual == null && fatura.desconto_percentual == null ? "Não informado" : percentual(descontoContratado)}`, 326, y.total + 79);
+    pdf.fillColor("#D8EEE6").font("Helvetica").fontSize(6.2).text(`Desconto real do mês: ${fatura.desconto_real_percentual == null ? "Não informado" : percentual(descontoReal)}`, 326, y.total + 69);
 
     pdf.roundedRect(48, y.aviso, LARGURA, 40, 6).fill(faturaSomenteAndrade ? "#FFF0D8" : "#FFF7E7");
     pdf.roundedRect(48, y.aviso, LARGURA, 40, 6).strokeColor(faturaSomenteAndrade ? "#DC8A00" : "#F0C36C").lineWidth(faturaSomenteAndrade ? 1.1 : 0.7).stroke();
