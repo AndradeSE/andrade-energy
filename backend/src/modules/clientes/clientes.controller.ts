@@ -3,7 +3,7 @@ import { GEMINI_CONVERSATION_MODEL } from "../assistente/gemini-model";
 import { hojeNoBrasil } from "../contratos/desligamentoContrato.policy";
 import { Request, Response } from "express";
 import { supabase } from "../../config/supabase";
-import { configuracaoAutoleitura } from "./autoleituraConfig";
+import { configuracaoAutoleitura, executorAutoleituraHabilitado } from "./autoleituraConfig";
 import { validarCadastroCliente } from "./validacaoCadastro";
 
 import {
@@ -267,7 +267,7 @@ export async function registrarAutoleituraController(req: Request, res: Response
 const idAutoleituraValido = (id: string) => /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(id);
 
 export async function listarFilaAutoleituraController(req: Request, res: Response) {
-  if (process.env.CEMIG_AUTOLEITURA_EXECUTOR_ENABLED !== "true") {
+  if (!executorAutoleituraHabilitado(process.env)) {
     return res.status(503).json({ message: "Executor de autoleitura desabilitado." });
   }
   const hoje = hojeNoBrasil();
@@ -290,7 +290,7 @@ export async function listarFilaAutoleituraController(req: Request, res: Respons
 }
 
 export async function executarAutoleituraController(req: Request, res: Response) {
-  if (process.env.CEMIG_AUTOLEITURA_EXECUTOR_ENABLED !== "true") {
+  if (!executorAutoleituraHabilitado(process.env)) {
     return res.status(503).json({ message: "Executor de autoleitura desabilitado." });
   }
   const { unidadeId, leituraId } = req.params;

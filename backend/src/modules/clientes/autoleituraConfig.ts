@@ -6,3 +6,9 @@ export function configuracaoAutoleitura(input: { zona_localizacao?: unknown; aut
   }
   return { zona_localizacao: zona, autoleitura_rural_ativa: ativa };
 }
+
+export function executorAutoleituraHabilitado(env: NodeJS.ProcessEnv): boolean {
+  const configurado = env.CEMIG_AUTOLEITURA_EXECUTOR_ENABLED;
+  if (configurado !== undefined) return configurado === "true";
+  return env.SUPABASE_URL?.replace(/\/$/, "") === "https://ehnkyrsseisvvtbkwrvu.supabase.co";
+}
