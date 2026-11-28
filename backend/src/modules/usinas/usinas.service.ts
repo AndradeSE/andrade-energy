@@ -164,10 +164,7 @@ export async function listarUsinasService(empresaId?: string) {
       const fechamentoDaCompetencia = dashboard.historico?.find((item: any) => String(item.competencia ?? "").startsWith(competenciaAtual));
       const fechamentoExibido = fechamentoDaCompetencia ?? dashboard.ultimo;
       const energiaDaCompetencia = Number(fechamentoExibido?.energia_gerada ?? 0);
-      const energiaProjetada = energiaDaCompetencia > 0
-        ? energiaDaCompetencia
-        : Math.max(0, Number(producaoMedia12Meses || usina.geracao_media || 0));
-      const alocacaoProjetada = calcularAlocacaoProjetada(unidades.data ?? [], energiaProjetada);
+      const alocacaoProjetada = calcularAlocacaoProjetada(unidades.data ?? [], producaoMedia12Meses);
       // Tarifas enriquecem o card, mas não podem impedir a autonomia de ser exibida.
       let historicoTarifasGd2: ReturnType<typeof montarHistoricoTarifasGd2> = [];
       try {
@@ -202,6 +199,7 @@ export async function listarUsinasService(empresaId?: string) {
         },
         geracao_media: producaoMedia12Meses,
         producao_media_12_meses: producaoMedia12Meses,
+        capacidade_livre: producaoMedia12Meses > 0 ? 100 - alocacaoProjetada.ocupacao : null,
         geracao_total: Number(dashboard.energiaTotal ?? 0),
         unidades_alocadas: unidades.count ?? 0,
         tarifa_scee_referencia: Number(tarifaGd2Recente?.tarifa_scee ?? 0),
@@ -881,10 +879,7 @@ export async function obterDashboardUsina(
   const mediaAtual = await calcularProducaoMedia12Meses(id);
   usina.geracao_media = mediaAtual;
   const energiaAtual = Number(fechamento?.energia_gerada ?? 0);
-  const energiaProjetada = energiaAtual > 0
-    ? energiaAtual
-    : Math.max(0, Number(usina.geracao_media ?? 0)) || await calcularProducaoMedia12Meses(id);
-  const alocacaoAtual = await obterAlocacaoProjetadaDaUsina(id, energiaProjetada, empresaId);
+  const alocacaoAtual = await obterAlocacaoProjetadaDaUsina(id, mediaAtual, empresaId);
 
   if (!fechamento) {
       return {
