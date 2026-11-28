@@ -9,6 +9,10 @@ export const appReleaseNotes = releases.filter(item =>
   item.variant === variant && (item.audience === "all" || item.audience === (preview ? "internal" : "clients"))
 );
 
+export const installedUpdateDate = Updates.createdAt && !Updates.isEmbeddedLaunch
+  ? new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo" }).format(Updates.createdAt)
+  : undefined;
+
 export function appReleaseSummary(history: boolean) {
   const revision = Updates.updateId?.slice(-8) ?? "incluída no instalador";
   const version = Constants.expoConfig?.version ?? "não informada";
@@ -23,7 +27,8 @@ export function appReleaseSummary(history: boolean) {
   return [
     APP_DISPLAY_NAME + " · " + (preview ? "Preview" : "Produção"),
     "Versão " + version + " · Revisão " + revision,
-    details.length ? "Notas incluídas nesta versão:" : "Esta instalação não tem notas de atualização registradas.",
+    installedUpdateDate ? "Data da atualização instalada: " + installedUpdateDate : "Data da atualização OTA indisponível.",
+    details.length ? "Histórico de atualizações:" : "Esta instalação não tem notas de atualização registradas.",
     ...details,
   ].join("\n\n");
 }

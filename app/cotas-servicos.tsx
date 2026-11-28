@@ -14,7 +14,7 @@ import {contingencyRoutingEnabled} from '../config/api';
 
 const number = (value: number) => Number(value).toLocaleString("pt-BR", { maximumFractionDigits: 2 });
 const date = (value: string) => new Date(value).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
-const panels: Record<string, string> = { NEON: "https://console.neon.tech/", AZURE: "https://portal.azure.com/", RENDER: "https://dashboard.render.com/", RESEND: "https://resend.com/overview", BREVO: "https://app.brevo.com/", NETLIFY: "https://app.netlify.com/", SUPABASE: "https://supabase.com/dashboard" };
+const panels: Record<string, string> = { NEON: "https://console.neon.tech/", AZURE: "https://portal.azure.com/", GEMINI: "https://aistudio.google.com/rate-limit?project=andrade-s-eletricas", RENDER: "https://dashboard.render.com/", RESEND: "https://resend.com/overview", BREVO: "https://app.brevo.com/", NETLIFY: "https://app.netlify.com/teams/andradeenergyltda/billing", SUPABASE: "https://supabase.com/dashboard" };
 const categories = [
   { id: "bancos", label: "Bancos de dados", icon: "server-outline" },
   { id: "servidores", label: "Servidores", icon: "cloud-outline" },
@@ -26,9 +26,62 @@ const categories = [
 type Category = typeof categories[number]["id"];
 const serviceCategory: Record<string, Category> = {
   SUPABASE: "bancos", NEON: "bancos", RENDER: "servidores", NETLIFY: "servidores",
-  AZURE: "voz", RESEND: "email", BREVO: "email", CAPMONSTER: "automacao",
+  AZURE: "voz", GEMINI: "voz", RESEND: "email", BREVO: "email", CAPMONSTER: "automacao",
 };
 const categoryOf = (service: string): Category => serviceCategory[service] ?? "outros";
+const confirmedQuotaUsage: Record<string, { used: number; limit: number; label: string }> = {
+  "NEON:compute_reserva": { used: 32.43, limit: 100, label: "CU-horas no ciclo" },
+  "NETLIFY:creditos": { used: 1662.9, limit: 300, label: "créditos no ciclo" },
+  "GEMINI:gemini_35_flash_lite": { used: 3, limit: 500, label: "solicitações no dia de pico do mês" },
+  "GEMINI:gemini_38_live": { used: 15530, limit: 65000, label: "tokens no minuto de pico do mês" },
+  "GEMINI:gemini_38_flash_lite_tts": { used: 0, limit: 10, label: "solicitações no dia de pico do mês" },
+};
+
+function QuotaUsageBar({ percent, label = "utilizado", exhausted = false }: { percent: number; label?: string; exhausted?: boolean }) {
+  const caption = exhausted ? "Cota esgotada" : number(percent) + "% " + label;
+  return <>
+    <View style={styles.track} accessibilityRole="progressbar" accessibilityValue={{ text: caption }}>
+      <View style={[styles.fill, { width: `${Math.min(Math.max(percent, 0), 100)}%`, backgroundColor: percent >= 90 ? "#B54228" : Colors.primary }]}/>
+    </View>
+    <Text style={styles.text}>{caption}</Text>
+  </>;
+}
+
+const renderReserveUsage = [
+  { label: "Horas de instância", used: 141.03, limit: 750, unit: "h" },
+  { label: "Tráfego incluído", used: 371, limit: 5000, unit: "MB" },
+  { label: "Minutos de build", used: 58, limit: 500, unit: "min" },
+];
+
+function RenderQuotaCards() {
+  const showLatestReadings = Date.now() < Date.parse("2026-12-01T00:00:00Z");
+  const open = (url: string) => { void Linking.openURL(url); };
+  return <>
+    <Card>
+      <Text style={styles.title}>Render Principal</Text>
+      {showLatestReadings ? <>
+        <Text style={styles.text}>Tráfego incluído · 5 GB de 5 GB</Text>
+        <QuotaUsageBar percent={100} exhausted />
+        <Text style={styles.note}>Franquia de tráfego esgotada no ciclo de novembro. Os serviços de produção e homologação estavam suspensos na conferência de 24/11/2026.</Text>
+      </> : <Text style={styles.note}>Consulte o saldo do ciclo atual no painel do Render.</Text>}
+      <Text style={styles.note}>Franquia de instância: 750 h por mês. Consumo de horas e minutos de build indisponível.</Text>
+      <Text style={styles.link} accessibilityRole="link" onPress={() => open("https://dashboard.render.com/w/tea-da0inh49v7es739fb35g/billing")}>Abrir painel do Render Principal</Text>
+    </Card>
+    <Card>
+      <Text style={styles.title}>Render Reserva</Text>
+      {showLatestReadings ? <>
+        <Text style={styles.note}>Leitura do painel em 24/11/2026 · ciclo de novembro</Text>
+        {renderReserveUsage.map((metric, index) => <View key={metric.label} style={index > 0 ? styles.quotaDivider : undefined}>
+          <Text style={styles.period}>{metric.label}</Text>
+          <Text style={styles.text}>{number(metric.used)} de {number(metric.limit)} {metric.unit} · {number(metric.limit - metric.used)} {metric.unit} restantes na leitura</Text>
+          <QuotaUsageBar percent={metric.used / metric.limit * 100} />
+        </View>)}
+      </> : <Text style={styles.note}>Consulte o saldo do ciclo atual no painel do Render.</Text>}
+      <Text style={styles.link} accessibilityRole="link" onPress={() => open("https://dashboard.render.com/w/tea-dbdrk3fb9u1s73b9oe6g/billing")}>Abrir painel do Render Reserva</Text>
+    </Card>
+  </>;
+}
+
 export default function ServiceQuotasScreen() {
   const { usuario } = useAuth();
   const allowed = IS_GERADOR_APP && canViewServiceQuotas(usuario);
@@ -109,31 +162,46 @@ export default function ServiceQuotasScreen() {
           {group.map((item, index) => {
           const reading = item.leitura;
           const pct = reading?.percentual;
+          const confirmed = !reading && item.consulta?.status === "CONSULTA_MANUAL" &&
+            item.consulta.consultado_em.startsWith("2026-11-23")
+            ? confirmedQuotaUsage[`${item.servico}:${item.metrica}`] : undefined;
           const partialReadingFresh = item.consulta?.status === "SEM_DADOS_COMPLETOS" && reading && Date.parse(reading.verificado_em) >= Date.parse(item.consulta.consultado_em) - 60_000;
           const stale = reading?.desatualizada || (item.automatico && item.consulta?.status !== "OK" && !partialReadingFresh);
           return <View key={item.metrica} style={index > 0 ? styles.quotaDivider : undefined}>
             {item.servico === "RESEND" ? <Text style={styles.period}>{item.metrica === "emails_dia" ? "Cota diária" : "Cota mensal"}</Text> : null}
                         {item.servico === "SUPABASE" && item.metrica === "banco_bytes" && reading?.limite == null
               ? <Text style={styles.note}>Plano Free · 500 MB por projeto. O tamanho do banco é medido pelo PostgreSQL.</Text>
-              : item.observacao ? <Text style={styles.note}>{item.observacao}</Text> : null}
+              : item.observacao && !(confirmed && item.servico === "NETLIFY") ? <Text style={styles.note}>{item.observacao}</Text> : null}
             {item.servico==='CAPMONSTER' && item.saldoDisponivel!=null ? <Text style={styles.balance}>US$ {item.saldoDisponivel.toLocaleString('pt-BR',{minimumFractionDigits:4,maximumFractionDigits:4})} disponíveis</Text> : null}
+            {confirmed && item.servico === "NETLIFY" ? <>
+              <Text style={styles.period}>Leitura histórica · 23/11/2026</Text>
+              <Text style={styles.balance}>0 créditos disponíveis na consulta</Text>
+              <Text style={styles.text}>{number(confirmed.used)} créditos reportados · franquia de {number(confirmed.limit)} créditos</Text>
+              <QuotaUsageBar percent={Math.min(confirmed.used / confirmed.limit * 100, 100)} label="da franquia atingida na consulta" />
+            </> : null}
+            {confirmed && item.servico !== "NETLIFY" ? <>
+              <Text style={styles.text}>{number(confirmed.used)} de {number(confirmed.limit)} {confirmed.label}</Text>
+              <QuotaUsageBar percent={confirmed.used / confirmed.limit * 100} label={item.servico === "GEMINI" ? "do limite no pico" : "utilizado na leitura"} />
+            </> : null}
+            {item.servico === "NETLIFY" && !reading ? <Text style={styles.note}>Saldo atual indisponível no app. Consulte o painel do Netlify. A leitura histórica de créditos não indica a disponibilidade da API.</Text> : null}
             {reading ? <>
               <Text style={styles.balance}>{reading.limite === null ? (item.servico === "SUPABASE" ? "Uso do banco" : "Consumo disponível · limite do plano não confirmado") : `${item.servico === "AZURE" ? "Estimativa: " : ""}${number(item.unidade === "bytes" ? (reading.restante ?? 0) / 1048576 : reading.restante ?? 0)} ${item.unidade === "bytes" ? "MB" : item.unidade} restantes`}</Text>
               <Text style={styles.text}>Utilizado: {number(item.unidade === "bytes" ? reading.usado / 1048576 : reading.usado)}{reading.limite === null ? "" : ` de ${number(item.unidade === "bytes" ? reading.limite / 1048576 : reading.limite)}`} {item.unidade === "bytes" ? "MB" : item.unidade}</Text>
-              {pct !== null && pct !== undefined ? <><View style={styles.track}><View style={[styles.fill, { width: `${Math.min(Math.max(pct, 0), 100)}%`, backgroundColor: pct >= 90 ? "#B54228" : Colors.primary }]}/></View><Text style={styles.text}>{number(pct)}% utilizado</Text></> : null}
+              {pct != null ? <QuotaUsageBar percent={pct} /> : null}
               <Text style={styles.text}>{item.servico === "BREVO" ? "Plano gratuito · limite diário de envios" : reading.renova_em ? `${item.servico === "SUPABASE" ? "Leitura válida até" : reading.origem === "API_OFICIAL" ? item.servico === "AZURE" ? "Renovação mensal prevista" : "Renovação informada" : "Leitura válida até"}: ${date(reading.renova_em)}` : "Renovação: consulte o período no painel do provedor."}</Text>
               <Text style={styles.note}>{reading.origem === "API_OFICIAL" ? "API oficial" : "Leitura confirmada do painel"} · {date(reading.verificado_em)}</Text>
               {stale ? <Text style={styles.warning}>Consulta desatualizada ou indisponível. Este saldo pode ter mudado.</Text> : null}
-            </> : item.servico==='CAPMONSTER' && item.saldoDisponivel!=null ? <Text style={styles.note}>API oficial · {date(item.consulta!.consultado_em)}</Text> : <Text style={styles.text}>{item.automatico ? item.consulta?.status === "SEM_PERMISSAO" ? "A chave configurada não permite consultar o uso." : item.consulta?.status === "PLANO_NAO_SUPORTADO" ? "O plano retornado não permite confirmar a cota gratuita. Confira o saldo no painel." : item.consulta?.status === "SEM_DADOS_COMPLETOS" ? "O Azure ainda não retornou medições para este item no mês. A ausência de dados não significa consumo zero." : "Sem leitura disponível. A consulta automática precisa estar conectada." : "Leitura manual: confira o painel do provedor e informe abaixo os valores para acompanhar o saldo aqui."}</Text>}
+            </> : item.servico==='CAPMONSTER' && item.saldoDisponivel!=null ? <Text style={styles.note}>API oficial · {date(item.consulta!.consultado_em)}</Text> : item.consulta?.status === "CONSULTA_MANUAL" && item.observacao ? null : <Text style={styles.text}>{item.automatico ? item.consulta?.status === "SEM_PERMISSAO" ? "A chave configurada não permite consultar o uso." : item.consulta?.status === "PLANO_NAO_SUPORTADO" ? "O plano retornado não permite confirmar a cota gratuita. Confira o saldo no painel." : item.consulta?.status === "SEM_DADOS_COMPLETOS" ? "O Azure ainda não retornou medições para este item no mês. A ausência de dados não significa consumo zero." : "Sem leitura disponível. A consulta automática precisa estar conectada." : "Leitura manual: confira o painel do provedor e informe abaixo os valores para acompanhar o saldo aqui."}</Text>}
           </View>;
           })}
           {(panels[group[0].servico] || group[0].servico === "CAPMONSTER") ? <Text style={styles.link} accessibilityRole="link" onPress={() => void Linking.openURL(group[0].servico==='CAPMONSTER'?'https://dash.capmonster.cloud/':panels[group[0].servico]).catch(() => setError("Não foi possível abrir o painel."))}>Abrir painel do provedor</Text> : null}
         </Card>)}
+        {category === "servidores" ? <RenderQuotaCards /> : null}
         {category === "servidores" && contingencyRoutingEnabled ? <>
           <Text style={styles.note}>Confira a política de troca e o estado dos servidores no controle abaixo.</Text>
           <ContingencyControl/>
         </> : null}
-        {!busy && data && !visibleGroups.length && !(category === "bancos" && data.reservaDados) && !(category === "servidores" && contingencyRoutingEnabled) ? <Text style={styles.note}>Nenhum serviço desta categoria disponível neste ambiente.</Text> : null}
+        {!busy && data && !visibleGroups.length && !(category === "bancos" && data.reservaDados) && category !== "servidores" ? <Text style={styles.note}>Nenhum serviço desta categoria disponível neste ambiente.</Text> : null}
       </>}
     </ElasticScrollView></Screen>;
 }

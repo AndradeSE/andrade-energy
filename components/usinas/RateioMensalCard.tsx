@@ -48,6 +48,15 @@ export default function RateioMensalCard({usinaId,empresaId,competencia,abrirEnv
     catch(e:any){Alert.alert('Âncora não alterada',e?.response?.data?.message??'Não foi possível salvar a escolha. Tente novamente.');}
     finally{setOcupado(false);}
   }
+  const [progresso,setProgresso]=useState<ConfiguracaoRateio["progresso"]>();
+  useEffect(()=>{
+    let ativo=true;
+    setProgresso(undefined);
+    if(competencia) void obterConfiguracaoRateio(usinaId,competencia)
+      .then(dados=>{if(ativo)setProgresso(dados.progresso);})
+      .catch(()=>{if(ativo)setProgresso(undefined);});
+    return()=>{ativo=false;};
+  },[usinaId,competencia]);
   async function baixarAuto(){if(!competencia||ocupado)return;const pedido=escopo.current;setOcupado(true);try{const plano=await buscarRateioAutomatico(usinaId,competencia);if(pedido!==escopo.current)return;setResultado(plano);setVisualizando(true);}catch(e:any){Alert.alert("Rateio automático",e?.response?.data?.message??e.message??"Tente novamente.");}finally{setOcupado(false);}}
   async function gerar() {
     if(!competencia||ocupado)return;
@@ -64,26 +73,37 @@ export default function RateioMensalCard({usinaId,empresaId,competencia,abrirEnv
     finally{setOcupado(false);}
   }
   const [envioAberto, setEnvioAberto] = useState(abrirEnvio);
-  return <><OperationLoading visible={ocupado} title="Preparando rateio…"/><RateioFileViewer arquivo={visualizando?resultado:undefined} onClose={()=>setVisualizando(false)}/>    <View style={{gap:8}} accessibilityLabel="Saldo acumulado da UC âncora">
-      <Metric variant="primary" title="Saldo acumulado da âncora" value={consultandoSaldo?"Consultando…":erroSaldo?"Consulta indisponível":saldoAncora?.saldoKwh!=null?`${saldoAncora.saldoKwh.toLocaleString("pt-BR",{maximumFractionDigits:2})} kWh`:"Saldo não informado"} icon={<Ionicons name="layers-outline" size={24} color="#FFFFFF"/>} subtitle="Créditos informados na última fatura · kWh"/>
+  return <><OperationLoading visible={ocupado} title="Preparando rateio…"/><RateioFileViewer arquivo={visualizando?resultado:undefined} onClose={()=>setVisualizando(false)}/>
+    <Metric variant="primary" title="Saldo acumulado da âncora" value={consultandoSaldo?"Consultando…":erroSaldo?"Consulta indisponível":saldoAncora?.saldoKwh!=null?`${saldoAncora.saldoKwh.toLocaleString("pt-BR",{maximumFractionDigits:2})} kWh`:"Saldo não informado"} icon={<Ionicons name="layers-outline" size={24} color="#FFFFFF"/>} subtitle="Créditos informados na última fatura · kWh">
+      <View style={{gap:8,marginTop:Spacing.sm}}>
 
-      {saldoAncora?<Text style={{color:Colors.subtitle}}>UC {saldoAncora.uc}{!ancora?" · geradora (âncora sugerida)":""}{saldoAncora.referencia?` · referência ${saldoAncora.referencia.slice(5,7)}/${saldoAncora.referencia.slice(0,4)}`:""}</Text>:null}
-      {detalhes?<Text style={{color:Colors.subtitle}}>Saldo total informado pela Cemig, incluindo créditos de outras usinas, como GD1. A injeção recebida não é somada novamente; o rateio previsto ainda não compõe este saldo.</Text>:null}
-      <Pressable accessibilityRole="button" accessibilityLabel="Atualizar saldo da UC âncora" disabled={consultandoSaldo} onPress={()=>setRevisaoSaldo(v=>v+1)} style={{minHeight:44,justifyContent:"center"}}><Text style={{color:Colors.primary,fontWeight:"700"}}>Atualizar saldo</Text></Pressable>
-      {!consultandoSaldo&&!erroSaldo&&saldoAncora?.saldoKwh==null?<Text style={{color:Colors.subtitle}}>Importe uma fatura que informe o saldo de créditos para atualizar este indicador.</Text>:null}
-    </View>
+      {saldoAncora?<Text style={{color:"#E1F4E9"}}>UC {saldoAncora.uc}{!ancora?" · geradora (âncora sugerida)":""}{saldoAncora.referencia?` · referência ${saldoAncora.referencia.slice(5,7)}/${saldoAncora.referencia.slice(0,4)}`:""}</Text>:null}
+      {detalhes?<Text style={{color:"#E1F4E9"}}>Saldo total informado pela Cemig, incluindo créditos de outras usinas, como GD1. A injeção recebida não é somada novamente; o rateio previsto ainda não compõe este saldo.</Text>:null}
+      <Pressable accessibilityRole="button" accessibilityLabel="Atualizar saldo da UC âncora" disabled={consultandoSaldo} onPress={()=>setRevisaoSaldo(v=>v+1)} style={{minHeight:44,justifyContent:"center"}}><Text style={{color:"#FFFFFF",fontWeight:"700"}}>Atualizar saldo</Text></Pressable>
+      {!consultandoSaldo&&!erroSaldo&&saldoAncora?.saldoKwh==null?<Text style={{color:"#E1F4E9"}}>Importe uma fatura que informe o saldo de créditos para atualizar este indicador.</Text>:null}
+        {progresso && progresso.competencia===competencia ? (
+      <View style={{borderTopWidth:1,borderTopColor:"rgba(255,255,255,0.35)",paddingTop:Spacing.md,gap:8}}>
+        <Text style={{color:"#fff",fontWeight:"700"}}>Faturas restantes para o rateio automático</Text>
+        <Text style={{color:"#fff",fontSize:32,fontWeight:"800"}} accessibilityLabel={`${progresso.restantes} faturas restantes`}>{progresso.restantes}</Text>
+        <Text style={{color:"#fff"}}>{progresso.total-progresso.restantes} de {progresso.total} faturas obrigatórias processadas.</Text>
+        {progresso.proximaLeitura ? <Text style={{color:"#fff"}}>Primeira leitura informada entre as pendências: {progresso.proximaLeitura.split("-").reverse().join("/")}.</Text> : null}
+        <Text style={{color:"#fff"}}>O rateio também depende da produção validada.</Text>
+      </View>
+    ) : null}
+      </View>
+    </Metric>
 <Card><View style={{gap:Spacing.sm}}>
     <Text style={{fontSize:18,fontWeight:"700",color:Colors.text}}>Rateio mensal</Text>
     <Text style={{color:Colors.subtitle}}>Planilha da competência {competencia?.replace(/^(\d{4})-(\d{2})$/, "$2/$1") ?? "selecionada"}. Configuração salva para os próximos meses.</Text>
     <Pressable accessibilityRole="button" accessibilityState={{expanded:detalhes}} onPress={()=>setDetalhes(v=>!v)} style={{minHeight:44,flexDirection:"row",alignItems:"center",gap:8}}><Ionicons name="information-circle-outline" size={20} color={Colors.primary}/><Text style={{color:Colors.primary}}>Como é calculado?</Text></Pressable>
-    {detalhes?<Text style={{color:Colors.subtitle}}>(Consumo médio − saldo de créditos da UC) ÷ produção média real da usina × 100, sem adicional e com mínimo de zero. O restante fica na UC âncora. Recalcule a cada competência antes de solicitar a alteração à Cemig.</Text>:null}
+    {detalhes?<Text style={{color:Colors.subtitle}}>(Consumo de referência − saldo de créditos da UC) ÷ produção média real da usina × 100, sem adicional e com mínimo de zero. O restante fica na UC âncora. Recalcule a cada competência antes de solicitar a alteração à Cemig.</Text>:null}
     <Pressable accessibilityRole="button" accessibilityState={{expanded:ajustes}} onPress={()=>setAjustes(v=>!v)} style={{minHeight:48,flexDirection:"row",alignItems:"center",justifyContent:"space-between"}}><Text style={{fontWeight:"700",color:Colors.text}}>UC âncora padrão</Text><Ionicons name={ajustes?"chevron-up":"chevron-down"} size={20} color={Colors.primary}/></Pressable>
     <View style={{display:ajustes?"flex":"none",gap:Spacing.sm}}><UcAncoraSelector usinaId={usinaId} empresaId={empresaId} value={ancora} disabled={ocupado} onChange={v=>void escolherAncora(v)} />
     <Text style={{color:Colors.subtitle}}>Use o número atual da UC. Sem âncora, gera rascunho. Titulares, documentos e e-mail vêm dos cadastros existentes.</Text>
     <Text style={{color:Colors.subtitle}}>O app verifica formato, duplicidade, titulares e percentuais. A aceitação dos números cadastrados depende da validação da Cemig.</Text>
     <Text style={{color:Colors.subtitle,lineHeight:22}}>Escolha a UC âncora e confirme. Ela fica como padrão desta usina para os próximos meses; essa escolha não envia o rateio.</Text>
     </View>
-    <Text style={{color:Colors.subtitle}}>{erroConfig?"Não foi possível consultar a automação. Tente consultar a configuração novamente.":config?.habilitado?"Automático: aguarda produção + faturas de todas as UCs vigentes. Ao gerar, envia e-mail e aviso ao gerador.":config?"Geração automática não habilitada. Confira a configuração com a gestão.":"Consultando configuração automática…"}</Text>
+    <Text style={{color:Colors.subtitle}}>{erroConfig?"Não foi possível consultar a automação. Tente consultar a configuração novamente.":config?.habilitado?"O rateio automático aguarda a produção e as faturas das UCs elegíveis cadastradas há mais de 30 dias. O cálculo usa o consumo da fatura do mês, da última fatura válida ou a média do cadastro, nessa ordem. Ao gerar a planilha, avisa o gerador.":config?"Geração automática não habilitada. Confira a configuração com a gestão.":"Consultando configuração automática…"}</Text>
     {config?.registros?.find(r=>r.competencia.slice(0,7)===competencia)?.status==="GERADO"?<Button title="Abrir planilha gerada automaticamente" disabled={ocupado} onPress={()=>void baixarAuto()} />:null}
     {config?.registros?.find(r=>r.competencia.slice(0,7)===competencia)?.status==="ERRO"?<Text style={{color:Colors.subtitle}}>Não foi possível concluir a geração automática. {config.registros.find(r=>r.competencia.slice(0,7)===competencia)?.erro}</Text>:null}
     {resultado?<><Text style={{color:Colors.primary,fontWeight:"700"}}>{resultado.rascunho?"Rascunho para conferência":"CSV no padrão Cemig"}</Text><SecaoRateio titulo="Conferência dos dados" resumo={`${resultado.pendencias?.length??0} pendência(s) · base ${resultado.producaoMedia.toLocaleString("pt-BR",{maximumFractionDigits:2})} kWh/mês`} aberto={revisaoAberta} onPress={()=>setRevisaoAberta(v=>!v)}/></>:null}

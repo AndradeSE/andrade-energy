@@ -9,6 +9,8 @@ import { Alert, Linking, Platform, StyleSheet, Text, View } from "react-native";
 import { TouchableOpacity } from "../../components/assistant/AssistantNativeControls";
 
 import FormField from "../../components/cadastro/FormField";
+import RealDiscountInfo from "../../components/cadastro/RealDiscountInfo";
+import { listarFaturas } from "../../services/faturas.service";
 import EnderecoFields from "../../components/cadastro/EnderecoFields";
 import { AppHeader, Button, Card, ElasticScrollView as ScrollView, Loading, Screen } from "../../components/ui";
 import { IS_GERADOR_APP } from "../../config/appVariant";
@@ -80,6 +82,19 @@ export default function ContratoDaUnidade() {
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [unidade, setUnidade] = useState<any>();
+  const [baseDesconto, setBaseDesconto] = useState<Awaited<ReturnType<typeof listarFaturas>>[number]>();
+  useEffect(() => {
+    let ativo = true;
+    setBaseDesconto(undefined);
+    if (unidade?.cliente_id && unidade?.numero) {
+      void listarFaturas(unidade.cliente_id, unidade.numero, unidade.usina_id)
+        .then(faturas => {
+          if (ativo) setBaseDesconto(faturas.find(fatura => !["RASCUNHO", "CANCELADA", "CANCELADO"].includes(String(fatura.status))));
+        })
+        .catch(() => {});
+    }
+    return () => { ativo = false; };
+  }, [unidade?.cliente_id, unidade?.numero, unidade?.usina_id]);
   const [numeroContrato, setNumeroContrato] = useState(`AE-${numero ?? "UC"}-${new Date().getFullYear()}`);
   const [termoAdesao, setTermoAdesao] = useState("");
   const [status, setStatus] = useState<StatusContrato>("ATIVO");
@@ -306,7 +321,15 @@ export default function ContratoDaUnidade() {
       const minutaDeRevisao = Boolean(contrato.dados_documento?.contrato_anterior_id);
       setNovoContrato(minutaDeRevisao);
       setContratoId(contrato.id);
-      setDadosDaMinutaRevisada(JSON.stringify(dadosMinuta));
+      const mensalCalculada = valorParaCampo(contrato.economia_mensal_estimada);
+      const anualCalculada = valorParaCampo(contrato.economia_anual_estimada);
+      setEconomiaMensal(mensalCalculada);
+      setEconomiaAnual(anualCalculada);
+      setDadosDaMinutaRevisada(JSON.stringify({
+        ...dadosMinuta,
+        economia_mensal_estimada: mensalCalculada,
+        economia_anual_estimada: anualCalculada,
+      }));
       setContratoGeradoUrl(contrato.contrato_gerado_url ?? undefined);
       setContratoAssinadoUrl(contrato.contrato_assinado_url ?? undefined);
       const minutaUrl = contrato.contrato_gerado_url;
@@ -515,7 +538,7 @@ export default function ContratoDaUnidade() {
           <View style={styles.infoGrid}>
             <InfoContrato label="Número" value={numeroContrato || "Não informado"} wide />
             <InfoContrato label="Status" value={status} />
-            <InfoContrato label="Desconto contratado" value={`${desconto || "0"}%`} />
+            <InfoContrato label="Desconto bruto contratado sobre a energia" value={`${desconto || "0"}%`} />
             <InfoContrato label="Início da vigência" value={inicio || "Não informado"} />
             <InfoContrato label="Vencimento" value={fim || "Não informado"} />
             <InfoContrato label="Economia mensal estimada" value={`R$ ${economiaMensal || "0"}`} />
@@ -562,7 +585,20 @@ export default function ContratoDaUnidade() {
           </View>
           <FormField label="Número do contrato *" value={numeroContrato} onChangeText={setNumeroContrato} placeholder="Ex.: AE-2026-001" />
           <FormField label="Termo de adesão" value={termoAdesao} onChangeText={setTermoAdesao} placeholder="Ex.: Termo assinado digitalmente" />
-          <FormField label="Desconto contratado (%)" value={desconto} onChangeText={(valor) => setDesconto(valor.replace(/[^\d,.]/g, ""))} keyboardType="decimal-pad" placeholder="0" />
+          {unidade?.meta_desconto_real_percentual != null && (unidade?.usinas?.tipo_gd ?? unidade?.tipo_gd) === "GD2"
+            ? <Text>Desconto real aproximado GD II: {Number(unidade.meta_desconto_real_percentual).toLocaleString("pt-BR")}%.</Text>
+            : <FormField label="Desconto bruto contratado (%)" value={desconto} onChangeText={(valor) => setDesconto(valor.replace(/[^\d,.]/g, ""))} keyboardType="decimal-pad" placeholder="0" />}
+          <Text>O desconto bruto é aplicado à energia. A economia real depende da compensação registrada na fatura e dos custos de disponibilidade e Fio B repassados conforme a configuração da UC.</Text>
+          {unidade?.meta_desconto_real_percentual != null && (unidade?.usinas?.tipo_gd ?? unidade?.tipo_gd) === "GD2" ? null : baseDesconto ? <RealDiscountInfo
+            descontoPercentual={desconto}
+            dadosFatura={baseDesconto}
+            tipoGd={unidade?.usinas?.tipo_gd ?? unidade?.tipo_gd}
+            modalidadeFaturamento={unidade?.modalidade_faturamento}
+            faturaSomenteAndrade={Boolean(unidade?.fatura_somente_andrade)}
+            disponibilidadeGd1={(unidade?.repassar_disponibilidade_gd1 ?? Number(unidade?.percentual_repasse_disponibilidade ?? 100) > 0) ? "REPASSAR" : "ABSORVER"}
+            disponibilidadeGd2={(unidade?.repassar_disponibilidade_gd2 ?? Number(unidade?.percentual_repasse_disponibilidade ?? 100) > 0) ? "REPASSAR" : "ABSORVER"}
+            fioBGd2={unidade?.repassar_diferenca_fio_b_gd2 === false ? "ABSORVER" : "REPASSAR"}
+          /> : <Text>A estimativa do desconto real fica disponível quando há uma fatura processada para esta UC.</Text>}
           <FormField label="Início da vigência" value={inicio} onChangeText={setInicio} keyboardType="numbers-and-punctuation" placeholder="DD/MM/AAAA" />
           <FormField label="Vencimento do contrato (automático)" value={planoContrato === "SEM_FIDELIDADE" ? "Prazo indeterminado" : fim} editable={false} placeholder="Calculado pelo prazo" />
           <FormField label="Economia mensal estimada pela proposta (R$)" value={economiaMensal} editable={false} placeholder="Calculada automaticamente" />

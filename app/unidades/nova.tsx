@@ -47,7 +47,7 @@ function percentualPelaMedia(usina: any, consumo: unknown, modalidade: Modalidad
 
 export default function NovaUnidade() {
   const { usinaSelecionada: usinaDoAmbiente, selecionarUsina } = useAuth();
-  const { origem, classificacao, cliente, clienteId: clienteIdVinculado, uc, cpf: cpfImportado, energiaCompensada, endereco: enderecoImportado, distribuidora: distribuidoraImportada, cadastroRapido, consumoMedio: consumoMedioImportado, dadosFatura: dadosFaturaParam } = useLocalSearchParams<{ origem?: string; classificacao?: string; cliente?: string; clienteId?: string; uc?: string; cpf?: string; energiaCompensada?: string; endereco?: string; distribuidora?: string; cadastroRapido?: string; consumoMedio?: string; dadosFatura?: string }>();
+  const { origem, classificacao, cliente, clienteId: clienteIdVinculado, uc, cpf: cpfImportado, energiaCompensada, endereco: enderecoImportado, distribuidora: distribuidoraImportada, cadastroRapido, consumoMedio: consumoMedioImportado, dadosFatura: dadosFaturaParam, cadastroCliente } = useLocalSearchParams<{ origem?: string; classificacao?: string; cliente?: string; clienteId?: string; uc?: string; cpf?: string; energiaCompensada?: string; endereco?: string; distribuidora?: string; cadastroRapido?: string; consumoMedio?: string; dadosFatura?: string; cadastroCliente?: string }>();
   const [dadosFatura, setDadosFatura] = useState<Record<string, any> | null>(() => parseDadosFatura(dadosFaturaParam));
   const [mensagemSalvar, setMensagemSalvar] = useState("");
   const [numero, setNumero] = useState(""); const [titular, setTitular] = useState("");
@@ -291,7 +291,7 @@ export default function NovaUnidade() {
         });
       }
 
-      if (origem === "fatura" && clienteId) {
+      if ((origem === "fatura" || cadastroCliente === "1") && clienteId) {
         setMensagemSalvar("Unidade salva com sucesso.");
         const destino = { pathname: "/clientes/[id]", params: { id: clienteId, area: "unidades" } } as any;
         if (await avisosPassoAPassoAtivos()) Alert.alert("UC configurada", "Próximos passos: abra esta UC, gere a minuta, revise o contrato e envie o convite. Depois, aguarde o cliente criar a conta e assinar; somente então ele ficará ativo e a UC será liberada.", [

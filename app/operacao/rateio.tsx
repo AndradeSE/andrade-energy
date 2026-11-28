@@ -17,6 +17,7 @@ import {isPreviewEnvironment} from '../../config/environment';
 import {canViewServiceQuotas} from '../../utils/service-quota-access';
 
 export default function RateioOperacao({simulationOnly=false}:{simulationOnly?:boolean}={}) {
+  const mesAtual = new Intl.DateTimeFormat("sv-SE",{timeZone:"America/Sao_Paulo",year:"numeric",month:"2-digit"}).format(new Date());
   const { user, usinaSelecionada } = useAuth();
   const testesTecnicos=isPreviewEnvironment&&canViewServiceQuotas(user);
   const params = useLocalSearchParams<{competencia?:string;usinaId?:string;secao?:string}>();
@@ -32,7 +33,7 @@ export default function RateioOperacao({simulationOnly=false}:{simulationOnly?:b
   const acessoConfirmado=!alvo||usinaAviso.data?.id===alvo;
   const nome=alvo?usinaAviso.data?.nome:usinaSelecionada?.nome;
   const resumo=useQuery({queryKey:['rateio-competencias',user?.empresa_id,id,mes],enabled:!!id&&permitido&&acessoConfirmado,queryFn:()=>obterResumoOperacao(mes,id!)});
-  const competencia=mes??resumo.data?.competencia;
+  const competencia=mes??(resumo.data?.competencia && resumo.data.competencia<=mesAtual ? resumo.data.competencia : mesAtual);
   if (permitido && id && ((!acessoConfirmado && usinaAviso.isPending) || (acessoConfirmado && !competencia && resumo.isPending))) {
     return <Screen><AppHeader variant="subpage" showPlantSwitch={false} title={simulationOnly?"Teste técnico da Cemig":"Rateio"} subtitle="Operação da usina" contextTitle={simulationOnly?"Teste sem envio à Cemig":"Planilha mensal de rateio"} contextSubtitle={nome??(alvo?"Usina do aviso":"Selecione uma usina")} icon="git-merge-outline"/><TabDataPending /></Screen>;
   }
@@ -42,7 +43,7 @@ export default function RateioOperacao({simulationOnly=false}:{simulationOnly?:b
         {simulationOnly&&testesTecnicos&&competencia?<CemigNativeBrowserPreview usinaId={id} competencia={competencia}/>:null}
         {simulationOnly&&testesTecnicos?<CemigAutomationPreview usinaId={id}/>:null}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap:8}}>
-          {[...new Set([...(resumo.data?.competencias??[]),...(competencia?[competencia]:[])])].sort().map((item:string)=><Pressable key={item} accessibilityRole="button" accessibilityState={{selected:item===competencia}} onPress={()=>setMes(item)} style={{padding:12,borderRadius:24,backgroundColor:item===competencia?Colors.primary:Colors.surface}}><Text style={{color:item===competencia?'#fff':Colors.text}}>{item.slice(5,7)}/{item.slice(0,4)}</Text></Pressable>)}
+          {[...new Set([...(resumo.data?.competencias??[]),competencia])].filter(item=>item<=mesAtual||item===mes).sort().map((item:string)=><Pressable key={item} accessibilityRole="button" accessibilityState={{selected:item===competencia}} onPress={()=>setMes(item)} style={{padding:12,borderRadius:24,backgroundColor:item===competencia?Colors.primary:Colors.surface}}><Text style={{color:item===competencia?'#fff':Colors.text}}>{item.slice(5,7)}/{item.slice(0,4)}</Text></Pressable>)}
         </ScrollView>
         {resumo.isError?<Card><Text>Não foi possível consultar as competências.</Text><Button title="Tentar novamente" onPress={()=>void resumo.refetch()}/></Card>:competencia?simulationOnly?<Card><Text>Teste técnico restrito ao ADM de homologação. Não é uma simulação de economia do cliente.</Text></Card>:<RateioMensalCard abrirEnvio={params.secao==="envio"} key={id} usinaId={id} empresaId={String(user?.empresa_id??'')} competencia={competencia}/>:<TabDataPending />}
         {!simulationOnly&&testesTecnicos&&competencia?<Pressable accessibilityRole="button" onPress={()=>router.push({pathname:'/operacao/simulacao-rateio' as any,params:{usinaId:id,competencia}})} style={{paddingVertical:20}}><Text style={{color:Colors.primary,fontWeight:'700'}}>Teste técnico da Cemig · ADM</Text><Text style={{color:Colors.subtitle,marginTop:6}}>Homologação do navegador e anexo. Não faz parte do fluxo mensal.</Text></Pressable>:null}

@@ -114,6 +114,10 @@ export async function buscarFatura(id: string) {
   return data;
 }
 
+export async function registrarBaixaFatura(id: string) {
+  await api.post(`/faturas/${id}/baixa`);
+}
+
 export async function excluirFatura(id: string) {
   const { data } = await api.delete(`/faturas/${id}`);
   return data;

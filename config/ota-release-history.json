@@ -1,5 +1,95 @@
 [
   {
+    "numero": "OTA 20261124-153134",
+    "data": "24/11/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Restaura leitura datada e barra de creditos do Netlify"
+    ]
+  },
+  {
+    "numero": "OTA 20261124-152805",
+    "data": "24/11/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Distingue saldo historico e disponibilidade do Netlify"
+    ]
+  },
+  {
+    "numero": "OTA 20261124-151721",
+    "data": "24/11/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Cotas Render Principal e Reserva no painel de servidores"
+    ]
+  },
+  {
+    "numero": "OTA 20261124-063647",
+    "data": "24/11/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Cota esgotada no card Netlify"
+    ]
+  },
+  {
+    "numero": "OTA 20261124-063041",
+    "data": "24/11/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Barras de consumo para Neon Netlify e Gemini"
+    ]
+  },
+  {
+    "numero": "OTA 20261124-061812",
+    "data": "24/11/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Gemini na categoria Voz do painel de cotas"
+    ]
+  },
+  {
+    "numero": "OTA 20261123-215408",
+    "data": "23/11/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Sobre o app mostra a data da atualizacao instalada"
+    ]
+  },
+  {
+    "numero": "OTA 20261123-215119",
+    "data": "23/11/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Sobre o app mostra a data da atualizacao instalada"
+    ]
+  },
+  {
+    "numero": "OTA 20261123-211426",
+    "data": "23/11/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Sobre o app mostra a data da atualizacao instalada"
+    ]
+  },
+  {
+    "numero": "OTA 20261123-211128",
+    "data": "23/11/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Sobre o app mostra a data da atualizacao instalada"
+    ]
+  },
+  {
     "numero": "OTA 20261116-132734",
     "data": "16/11/2026",
     "variant": "gerador",

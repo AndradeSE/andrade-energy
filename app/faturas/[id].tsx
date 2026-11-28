@@ -5,7 +5,8 @@ import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Alert, RefreshControl, StyleSheet, Text, View } from "react-native";
 import { TouchableOpacity } from "../../components/assistant/AssistantNativeControls";
 
-import { AppHeader, Card, Divider, ElasticScrollView as ScrollView, EmptyState, Loading, Screen } from "../../components/ui";
+import { AppHeader, Button, Card, Divider, ElasticScrollView as ScrollView, EmptyState, Loading, Screen } from "../../components/ui";
+import { registrarBaixaFatura } from "../../services/faturas.service";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { buscarFatura, confirmarFaturaRascunho, excluirFatura, formatarDataBrasileira, gerarCobrancaAsaas, obterRelatorioCalculoFatura, regenerarDocumentosFatura } from "../../services/faturas.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
@@ -30,6 +31,7 @@ export default function DetalheFatura() {
   const [confirmando, setConfirmando] = useState(false);
   const [gerandoCobranca, setGerandoCobranca] = useState(false);
   const [excluindo, setExcluindo] = useState(false);
+  const [registrandoBaixa, setRegistrandoBaixa] = useState(false);
 
   const carregar = useCallback(async () => {
     setErro(false);
@@ -295,6 +297,24 @@ export default function DetalheFatura() {
         </Card>
 
         <View style={[styles.downloadActions, styles.downloadActionsTop]}>
+          {IS_GERADOR_APP && !paga && ["ABERTA", "PENDENTE", "VENCIDA"].includes(String(fatura.status)) ? (
+            <Button title={registrandoBaixa ? "Registrando baixa…" : "Dar baixa na fatura"} disabled={registrandoBaixa}
+              onPress={() => Alert.alert("Confirmar recebimento", "Use esta opção se o cliente já pagou fora do Asaas. A fatura será preservada.", [
+                { text: "Cancelar", style: "cancel" },
+                { text: "Registrar baixa", onPress: async () => {
+                  setRegistrandoBaixa(true);
+                  try {
+                    await registrarBaixaFatura(String(id));
+                    await carregar();
+                  } catch (erro: any) {
+                    Alert.alert("Não foi possível confirmar a baixa", erro?.response?.data?.message ?? "Atualize a fatura e tente novamente.");
+                  } finally {
+                    setRegistrandoBaixa(false);
+                  }
+                } },
+              ])}
+            />
+          ) : null}
           {IS_GERADOR_APP && !paga && String(fatura.status ?? "").toUpperCase() === "RASCUNHO" ? (
             <TouchableOpacity
               accessibilityRole="button"

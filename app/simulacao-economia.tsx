@@ -1,5 +1,11 @@
 import {useEffect,useRef,useState} from 'react';
 import {Keyboard,Text,View} from 'react-native';
+import * as DocumentPicker from 'expo-document-picker';
+import {File,Paths} from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
+import {gerarPropostaEconomiaPdf} from '../utils/proposta-economia-pdf';
+import {useAuth} from '../contexts/AuthContext';
+import {analisarFatura} from '../services/faturas.service';
 import {TextInput} from '../components/assistant/AssistantNativeControls';
 import {AppHeader,Button,Card,Metric,Screen,ElasticScrollView as ScrollView} from '../components/ui';
 import ChoiceField from '../components/cadastro/ChoiceField';
@@ -12,33 +18,100 @@ const money=(n:number)=>n.toLocaleString('pt-BR',{style:'currency',currency:'BRL
 const numero=(s:string)=>Number(s.replace(/\./g,'').replace(',','.'));
 const decimal=(n:number,casas=8)=>n.toLocaleString('pt-BR',{useGrouping:false,maximumFractionDigits:casas});
 const atual=new Date().toLocaleDateString('sv-SE',{timeZone:'America/Sao_Paulo'}).slice(0,7);
+const meses=['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ'];
+const ligacoes: Record<string,string>={MONOFASICO:'30',BIFASICO:'50',TRIFASICO:'100'};
+const semAcento=(valor:unknown)=>String(valor??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
+const positivo=(valor:unknown)=>Number.isFinite(Number(valor))&&Number(valor)>0;
+
 export default function SimulacaoEconomia(){
+ const {usinaSelecionada}=useAuth();
+ const tipoUsina=String(usinaSelecionada?.tipo_gd??'').toUpperCase().replace(/\s/g,'');
+ const gdUsina=tipoUsina==='GD2'||tipoUsina==='GDII'?'GD2':tipoUsina==='GD1'||tipoUsina==='GDI'?'GD1':undefined;
+ const [tarifasImportadas,setTarifasImportadas]=useState<{cheia?:number;semImpostos?:number}>();
  const [consumo,setConsumo]=useState(''),[avancado,setAvancado]=useState(false);
- const [classe,setClasse]=useState('B1'),[bandeira,setBandeira]=useState('0'),[referencia]=useState(atual);
+ const [classe,setClasse]=useState('B1'),[bandeira,setBandeira]=useState('0'),[referencia,setReferencia]=useState(atual);
  const [tarifa,setTarifa]=useState(''),[cheia,setCheia]=useState(''),[icms,setIcms]=useState(''),[pis,setPis]=useState(''),[cofins,setCofins]=useState('');
  const [resumoTributos,setResumoTributos]=useState('');
  const [fonte,setFonte]=useState(''),[tributosInfo,setTributosInfo]=useState(''),[erro,setErro]=useState(''),[avisoImpostos,setAvisoImpostos]=useState('');
  const [consultando,setConsultando]=useState(false),[reconsulta,setReconsulta]=useState(0); const sequencia=useRef(0);
- const [modalidade,setModalidade]=useState('COMPENSACAO'),[gd,setGd]=useState('GD1'),[ligacao,setLigacao]=useState('30');
+ const [modalidade,setModalidade]=useState('COMPENSACAO'),[gdEscolhida,setGd]=useState('GD1'),[ligacao,setLigacao]=useState('30');
+ const gd=gdUsina??gdEscolhida;
  const [plano,setPlano]=useState('COM_FIDELIDADE'),[desconto,setDesconto]=useState('');
  const [repasseDisponibilidade,setRepasseDisponibilidade]=useState('REPASSAR'),[repasseFioB,setRepasseFioB]=useState('REPASSAR');
  const [fioB,setFioB]=useState('');
  const [resultado,setResultado]=useState<ReturnType<typeof simularFaturas>>();
+ const [importando,setImportando]=useState(false),[avisoImportacao,setAvisoImportacao]=useState('');
+ async function importarFatura(){
+  setImportando(true);setErro('');setAvisoImportacao('');
+  try{
+   const escolha=await DocumentPicker.getDocumentAsync({type:['application/pdf','image/jpeg','image/png'],copyToCacheDirectory:true});
+   if(escolha.canceled)return;
+   const arquivo=escolha.assets[0];
+   const nome=arquivo.mimeType?.startsWith('image/')&&!/\.(jpe?g|png)$/i.test(arquivo.name)?'fatura.'+(arquivo.mimeType==='image/png'?'png':'jpg'):arquivo.name;
+   const {dados}=await analisarFatura(arquivo.uri,nome);
+   const kwh=Number(dados?.consumo);
+   if(!Number.isFinite(kwh)||kwh<=0)throw new Error('Não foi possível identificar o consumo. Confira a imagem ou preencha o consumo manualmente.');
+   setConsumo(decimal(kwh,3));
+   const tarifaFatura=positivo(dados.tarifaCheia)?Number(dados.tarifaCheia):undefined;
+   const semImpostos=positivo(dados.tarifaDisponibilidadeSemImpostos)?Number(dados.tarifaDisponibilidadeSemImpostos):undefined;
+   setTarifasImportadas({cheia:tarifaFatura,semImpostos});
+   const classificacao=semAcento(dados.classificacao);
+   const classeLida=classificacao.match(/\bB[123]\b/)?.[0];
+   if(classeLida)setClasse(classeLida);
+   else if(/RESIDENCIAL/.test(classificacao))setClasse('B1');
+   else if(/RURAL/.test(classificacao))setClasse('B2');
+   else if(/COMERCIAL|INDUSTRIAL|DEMAIS CLASSES/.test(classificacao))setClasse('B3');
+   const ligacaoLida=ligacoes[semAcento(dados.tipoLigacao)]??String(dados.franquiaDisponibilidadeKwh??'');
+   if(['30','50','100'].includes(ligacaoLida))setLigacao(ligacaoLida);
+   if(dados.tipoGd==='GD1'||dados.tipoGd==='GD2')setGd(dados.tipoGd);
+   const competencia=semAcento(dados.referencia).match(/^([A-Z]{3})\/(20\d{2})$/);
+   const mes=competencia?meses.indexOf(competencia[1])+1:0;
+   setReferencia(competencia&&mes?`${competencia[2]}-${String(mes).padStart(2,'0')}`:atual);
+   const bandeiraLida=semAcento(dados.bandeira);
+   if(bandeiraLida==='VERDE')setBandeira('0');
+   if(bandeiraLida==='AMARELA')setBandeira('1');
+   if(/^VERMELHA\s*(?:PATAMAR\s*)?[12]$/.test(bandeiraLida))setBandeira(bandeiraLida.endsWith('2')?'3':'2');
+   const tarifaGd2=Number(dados.tarifaGD2);
+   const tarifaScee=Number(dados.tarifaScee);
+   const diferenca=positivo(tarifaGd2)&&positivo(tarifaScee)?Math.max(0,tarifaScee-tarifaGd2):null;
+   setFioB(diferenca===null?'':decimal(kwh*diferenca,2));
+   setResultado(undefined);
+   setAvisoImportacao('Dados identificados na fatura foram preenchidos. Confira os campos estimados e informe o desconto da proposta.');
+  }catch(e:any){setErro(e?.response?.data?.message??e.message??'Não foi possível ler a fatura.');}
+  finally{setImportando(false);}
+ }
+ const [compartilhando,setCompartilhando]=useState(false);
+ async function enviarProposta(){
+  if(!resultado||compartilhando)return;
+  setCompartilhando(true);
+  setErro('');
+  try{
+   if(!await Sharing.isAvailableAsync())throw new Error('Compartilhamento de arquivos indisponível neste dispositivo.');
+   const pdf=await gerarPropostaEconomiaPdf(resultado,consumo,desconto,gd==='GD2'?'GD II':'GD I');
+   const arquivo=new File(Paths.cache,'proposta-andrade-energy.pdf');
+   arquivo.create({overwrite:true});
+   arquivo.write(pdf);
+   await Sharing.shareAsync(arquivo.uri,{mimeType:'application/pdf',UTI:'com.adobe.pdf',dialogTitle:'Enviar proposta por e-mail ou WhatsApp'});
+  }catch(e:any){setErro(e?.message??'Não foi possível compartilhar a proposta.');}
+  finally{setCompartilhando(false);}
+ }
  useEffect(()=>{
   const id=++sequencia.current;if(!/^20\d{2}-(0[1-9]|1[0-2])$/.test(referencia)){setConsultando(false);setCheia('');setTributosInfo('Informe a competência no formato AAAA-MM.');return;}
   setConsultando(true);setErro('');setCheia('');setTarifa('');setIcms('');setPis('');setCofins('');setFonte('');setTributosInfo('');setAvisoImpostos('');
   Promise.allSettled([consultarTarifaCemig(classe,Number(bandeira)),consultarTributosCemig(referencia)]).then(([preco,tributos])=>{
    if(id!==sequencia.current)return;
-   if(preco.status==='fulfilled'){setTarifa(decimal(preco.value));setFonte('Tarifa convencional vigente da Cemig, com a bandeira selecionada, antes dos impostos.');}
+   if(tarifasImportadas?.semImpostos!=null){setTarifa(decimal(tarifasImportadas.semImpostos));setFonte('Tarifa sem impostos lida na fatura.');}
+   else if(preco.status==='fulfilled'){setTarifa(decimal(preco.value));setFonte('Tarifa convencional vigente da Cemig, com a bandeira selecionada, antes dos impostos.');}
    else setFonte('Tarifa oficial indisponível. Você pode informar a tarifa da fatura.');
    if(tributos.status==='fulfilled'&&tributos.value.tributos){
     const t=tributos.value.tributos;setResumoTributos(tributos.value.vigente?'Impostos de '+t.referencia+'.':'Impostos da última referência publicada ('+t.referencia+'), usados apenas como estimativa.');setPis(decimal(t.pis,6));setCofins(decimal(t.cofins,6));if(t.icmsPadrao!==null)setIcms(decimal(t.icmsPadrao,4));
     setTributosInfo(tributos.value.vigente?`Impostos obtidos automaticamente da Cemig para ${t.referencia}. ICMS padrão, sem benefício fiscal.`:`Referência publicada mais recente: ${t.referencia}. A Cemig ainda não publicou ${referencia}; os campos usam essa referência para a estimativa, não valores confirmados do mês. ICMS padrão, sem benefício fiscal.`);
-    if(preco.status==='fulfilled'&&t.icmsPadrao!==null)setCheia(decimal(aplicarImpostosNaTarifa(decimal(preco.value),decimal(t.icmsPadrao),decimal(t.pis),decimal(t.cofins))));
+    if(tarifasImportadas?.cheia==null&&preco.status==='fulfilled'&&t.icmsPadrao!==null)setCheia(decimal(aplicarImpostosNaTarifa(decimal(tarifasImportadas?.semImpostos??preco.value),decimal(t.icmsPadrao),decimal(t.pis),decimal(t.cofins))));
    }else setTributosInfo('Consulta automática dos impostos indisponível. Preencha as alíquotas da fatura; campos vazios não significam isenção.');
+   if(tarifasImportadas?.cheia!=null)setCheia(decimal(tarifasImportadas.cheia));
   }).finally(()=>{if(id===sequencia.current)setConsultando(false);});
   return()=>{sequencia.current++;};
- },[classe,bandeira,referencia,reconsulta]);
+ },[classe,bandeira,referencia,reconsulta,tarifasImportadas]);
  // A máscara ao sair do campo não altera seu valor e não deve apagar a
  // simulação calculada pelo mesmo clique que encerra a edição.
  const valoresSimulacao=[consumo,tarifa,cheia,icms,pis,cofins,desconto,fioB].map(v=>v.trim()?numero(v):null).join('|');
@@ -56,11 +129,14 @@ export default function SimulacaoEconomia(){
  const nota=(s:string)=><Text style={{color:Colors.subtitle,lineHeight:22}}>{s}</Text>;
  return <Screen><AppHeader variant="subpage" showPlantSwitch={false} title="Calculadora de economia" subtitle="Uma ideia da economia do cliente" contextTitle="Estimativa rápida" contextSubtitle="Compensação de 100% do consumo"/><ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={{padding:20,gap:20,paddingBottom:40}}>
  <Card><View style={{gap:16}}>{titulo("Estime a economia")}
+ <Button title="Importar fatura (PDF ou foto)" disabled={importando||consultando} onPress={()=>void importarFatura()}/>
+ {importando?nota('Lendo fatura…'):null}
+ {avisoImportacao?nota(avisoImportacao):null}
  {campo('Consumo mensal',consumo,setConsumo)}
  {campo('Desconto oferecido',desconto,setDesconto,'%',4)}
  {escolha('Classe',classe,setClasse,[['B1','Residencial'],['B2','Rural'],['B3','Comércio e demais classes']])}
  {escolha('Ligação',ligacao,setLigacao,[['30','Monofásica'],['50','Bifásica'],['100','Trifásica']])}
- {escolha('Usina',gd,setGd,[['GD1','GD I'],['GD2','GD II']])}
+ {gdUsina?nota('Usina ativa: '+usinaSelecionada?.nome+' · '+(gdUsina==='GD2'?'GD II':'GD I')):escolha('Usina',gd,setGd,[['GD1','GD I'],['GD2','GD II']])}
  {nota('Consideramos 100% do consumo compensado. Disponibilidade calculada automaticamente pela ligação.')}
  {nota(consultando?'Consultando Cemig…':cheia?'Tarifa cheia: R$ '+cheia+'/kWh. '+resumoTributos:'Tarifa indisponível: informe nas opções avançadas.')}
  {gd==='GD2'&&!fioB?nota('Fio B estimado pela referência provisória do cadastro: 13% da energia. Ajuste opcional disponível abaixo.'):null}
@@ -94,6 +170,7 @@ export default function SimulacaoEconomia(){
  <Metric title="Cemig sem Andrade" value={money(resultado.cemigSemAndrade)}/>
  <Text style={{color:Colors.subtitle}}>Cemig após compensação: {money(resultado.cemigComAndrade)} + Andrade: {money(resultado.andrade)}.</Text>
  <Metric title={'Total estimado: Cemig + Andrade'} value={money(resultado.totalComAndrade)}/>
+ <Button title={compartilhando?"Preparando proposta…":"Compartilhar proposta em PDF"} disabled={compartilhando} onPress={()=>void enviarProposta()}/>
  <Metric title={resultado.economia>=0?'Economia estimada no mês':'Diferença a mais neste cenário'} value={money(Math.abs(resultado.economia))}/>
  {nota(`Abatimento de custos absorvidos pela Andrade: ${money(resultado.abatimento)}. ${'O total reúne as duas parcelas.'}`)}
  {nota(`Estimativa para 12 meses iguais: ${money(resultado.economiaAnual)} de economia. A fatura real depende do consumo, dos créditos, e dos tributos. A taxa de iluminação pública está excluída. Esta tela não emite cobrança.`)}

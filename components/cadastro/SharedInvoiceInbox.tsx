@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 import * as FileSystem from "expo-file-system/legacy";
 import { useEffect, useState } from "react";
-import { AppState, Modal, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
+import { AppState, Image, Modal, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
 import { AppHeader, Button, Card, Screen } from "../ui";
 import CadastroActions from "./CadastroActions";
 import { useAuth } from "../../contexts/AuthContext";
@@ -61,6 +61,9 @@ export default function SharedInvoiceInbox({ enabled }: { enabled: boolean }) {
                 <Text style={styles.description}>{extension === "pdf" ? "Documento PDF" : "Foto da fatura"}</Text>
               </View>
             </View>
+            {extension !== "pdf" ? (
+              <Image source={{ uri }} resizeMode="contain" style={styles.preview} accessibilityLabel="Foto da fatura compartilhada" />
+            ) : null}
             <Text style={styles.description}>Escolha o que deseja cadastrar com este arquivo.</Text>
             <View style={styles.actions}>
               {usinaSelecionada ? <>
@@ -82,6 +85,7 @@ const styles = StyleSheet.create({
   card: { gap: Spacing.md },
   fileRow: { flexDirection: "row", alignItems: "center", gap: Spacing.md },
   fileIcon: { width: 48, height: 48, borderRadius: Radius.lg, backgroundColor: Colors.background, alignItems: "center", justifyContent: "center" },
+  preview: { width: "100%", height: 260, backgroundColor: Colors.background, borderRadius: Radius.lg },
   fileCopy: { flex: 1 },
   title: { fontSize: Typography.card, fontWeight: "800", color: Colors.text },
   description: { color: Colors.subtitle, fontSize: Typography.small },

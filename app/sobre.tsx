@@ -4,7 +4,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { AppHeader, Card, ElasticScrollView, Screen } from "../components/ui";
 import { APP_DISPLAY_NAME, IS_GERADOR_APP } from "../config/appVariant";
 import { Colors, Spacing } from "../theme";
-import { appReleaseNotes } from "../services/app-release-notes";
+import { appReleaseNotes, installedUpdateDate } from "../services/app-release-notes";
 const geradorPreview = IS_GERADOR_APP && (Constants.expoConfig?.extra?.appEnvironment === "preview" || Updates.channel?.startsWith("preview"));
 const previewApp = Constants.expoConfig?.extra?.appEnvironment === "preview" || Updates.channel?.startsWith("preview");
 const atualizacaoAnterior = {
@@ -323,9 +323,7 @@ const historicoAnterior = IS_GERADOR_APP ? [
   ] },
 ];
 
-const recentes = appReleaseNotes;
-const atualizacaoAtual = recentes[0] ?? atualizacaoLegada;
-const historico = [...recentes.slice(1), atualizacaoLegada, atualizacaoContratoAnterior, atualizacaoAnteriorPublicada, ...historicoAnterior];
+const historico = [...appReleaseNotes, atualizacaoLegada, atualizacaoContratoAnterior, atualizacaoAnteriorPublicada, ...historicoAnterior];
 
 export default function SobreApp() {
   const version = Constants.expoConfig?.version ?? "Não informada";
@@ -335,7 +333,7 @@ export default function SobreApp() {
     <AppHeader variant="subpage" title="Sobre o app" subtitle="Andrade Energy" contextTitle="" contextSubtitle="" icon="information-circle-outline" />
     <ElasticScrollView contentContainerStyle={styles.content}>
       <Card><Text style={styles.title}>{APP_DISPLAY_NAME}</Text><Text style={styles.text}>Versão {version}</Text><Text style={styles.text}>Revisão: {revision}</Text><Text style={styles.text}>{ambiente}</Text></Card>
-      <Card><Text style={styles.title}>Atualização atual · {atualizacaoAtual.numero}</Text><Text style={styles.date}>{atualizacaoAtual.data}</Text>{atualizacaoAtual.melhorias.map(texto => <View key={texto} style={styles.item}><Text style={styles.dot}>•</Text><Text style={[styles.text, { flex: 1 }]}>{texto}</Text></View>)}</Card>
+      <Card><Text style={styles.title}>Atualização atual</Text><Text style={styles.text}>{installedUpdateDate ?? (Updates.isEmbeddedLaunch ? "Versão incluída no instalador" : "Data da atualização indisponível")}</Text></Card>
       <Card><Text style={styles.title}>Histórico de atualizações</Text>{historico.map(versao => <View key={versao.numero} style={styles.release}><Text style={styles.releaseTitle}>{versao.numero}</Text><Text style={styles.date}>{versao.data}</Text>{versao.melhorias.map(texto => <View key={texto} style={styles.item}><Text style={styles.dot}>•</Text><Text style={[styles.text, { flex: 1 }]}>{texto}</Text></View>)}</View>)}</Card>
     </ElasticScrollView>
   </Screen>;

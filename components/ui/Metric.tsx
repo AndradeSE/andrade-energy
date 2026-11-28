@@ -1,3 +1,4 @@
+import { LinearGradient } from "expo-linear-gradient";
 import { ReactNode } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
@@ -15,6 +16,7 @@ type Props = {
   subtitle?: string;
   icon?: ReactNode;
   compact?: boolean;
+  children?: ReactNode;
   variant?: "default" | "primary";
 };
 
@@ -24,10 +26,12 @@ export default function Metric({
   subtitle,
   icon,
   compact = false,
+  children,
   variant = "default",
 }: Props) {
-  return (
-    <View style={[styles.container, compact && styles.compact, variant === "primary" && styles.primary]}>
+  const containerStyle = [styles.container, compact && styles.compact];
+  const content = (
+    <>
       {icon && (
         <View style={styles.icon}>
           {icon}
@@ -47,8 +51,14 @@ export default function Metric({
           {subtitle}
         </Text>
       ) : null}
-    </View>
+      {children}
+    </>
   );
+  return variant === "primary" ? (
+    <LinearGradient colors={[Colors.primaryDark, Colors.primary]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0.8 }} style={containerStyle}>
+      {content}
+    </LinearGradient>
+  ) : <View style={containerStyle}>{content}</View>;
 }
 
 const styles = StyleSheet.create({
@@ -59,7 +69,6 @@ const styles = StyleSheet.create({
     ...Shadows.card,
   },
 
-  primary: { backgroundColor: Colors.primary },
   primaryLabel: { color: "#E1F4E9" },
   primaryValue: { color: "#FFFFFF" },
 

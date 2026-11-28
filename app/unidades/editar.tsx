@@ -105,6 +105,8 @@ export default function EditarAlocacaoUnidade() {
   const [salvandoAutoleitura, setSalvandoAutoleitura] = useState(false);
   const [planoContrato, setPlanoContrato] = useState("COM_FIDELIDADE");
   const [descontoPersonalizado, setDescontoPersonalizado] = useState(false);
+  const [metaDescontoReal,setMetaDescontoReal] = useState("");
+  const [faturaComMeta,setFaturaComMeta] = useState<{meta:number;aplicado:number;real:number}>();
   const [desconto, setDesconto] = useState("40"); const [consumoMedio, setConsumoMedio] = useState("0");
   const [formatoFatura, setFormatoFatura] = useState<FormatoFatura>("UNIFICADA");
   const [repasseDisponibilidadeGD1, setRepasseDisponibilidadeGD1] = useState<RepasseGD2>("REPASSAR");
@@ -202,6 +204,7 @@ export default function EditarAlocacaoUnidade() {
         setPlanoContrato(uc?.plano_contrato ?? "COM_FIDELIDADE");
         setDescontoPersonalizado(true);
         setDesconto(String(descontoImportado ?? uc?.desconto_percentual ?? c?.desconto_percentual ?? 40));
+        setMetaDescontoReal(String(uc?.meta_desconto_real_percentual ?? ""));
         setFormatoFatura(uc?.fatura_somente_andrade ? "SOMENTE_ANDRADE" : "UNIFICADA");
         setRepasseDisponibilidadeGD1((uc?.repassar_disponibilidade_gd1 ?? Number(uc?.percentual_repasse_disponibilidade ?? 100) > 0) ? "REPASSAR" : "ABSORVER");
         setRepasseDisponibilidadeGD2((uc?.repassar_disponibilidade_gd2 ?? Number(uc?.percentual_repasse_disponibilidade ?? 100) > 0) ? "REPASSAR" : "ABSORVER");
@@ -211,14 +214,21 @@ export default function EditarAlocacaoUnidade() {
         // Esses dados são indispensáveis para a projeção responder ao Fio B.
         const faturaBase = parseDadosFatura(dadosFaturaParam) ?? anexoDaUc?.dadosFatura ?? faturas[0] ?? null;
         setDadosFatura(faturaBase);
+        const faturaCalculada = faturas.find(item => item.meta_desconto_real_percentual != null
+          && item.desconto_contratado_percentual != null && item.desconto_real_percentual != null
+          && !["RASCUNHO","CANCELADO","CANCELADA","ERRO","PROCESSANDO"].includes(String(item.status).toUpperCase()));
+        setFaturaComMeta(faturaCalculada ? {
+          meta: Number(faturaCalculada.meta_desconto_real_percentual),
+          aplicado: Number(faturaCalculada.desconto_contratado_percentual),
+          real: Number(faturaCalculada.desconto_real_percentual),
+        } : undefined);
         setConsumoMedio(mediaFinal > 0 ? String(Math.round(mediaFinal)) : "");
-        setPercentual(
-          modalidadeFinal === "INJECAO"
-            ? (percentualSalvo === null || percentualSalvo === undefined ? "" : String(percentualSalvo))
-            : veioDaFatura
-              ? percentualPelaMedia(usinaSelecionada, String(mediaFinal), modalidadeFinal)
-              : percentualSalvo === null || percentualSalvo === undefined ? "" : String(percentualSalvo)
-        );
+        const alocacaoExistente = percentualSalvo == null ? "" : String(percentualSalvo);
+        const sugestao = modalidadeFinal === "COMPENSACAO" && veioDaFatura
+          ? percentualPelaMedia(usinaSelecionada, String(mediaFinal), modalidadeFinal)
+          : "";
+        setPercentual(sugestao || alocacaoExistente);
+        setPercentualEditado(!sugestao && valorNumerico(alocacaoExistente) > 0);
       } catch (erro: any) {
         if (!ativa) return;
         setErroCadastro("Não foi possível carregar os dados atuais da UC. Tente novamente; nenhuma configuração foi alterada.");
@@ -251,7 +261,7 @@ export default function EditarAlocacaoUnidade() {
     ]);
     if (!Number.isFinite(descontoNumero) || descontoNumero < 0 || descontoNumero > 100) return Alert.alert("Desconto inválido", "Informe um desconto entre 0% e 100%.");
     try { setSalvando(true);
-      await alocarUnidade(usinaId, { ...(zona ? { zona_localizacao: zona, autoleitura_rural_ativa: zona === "RURAL" && autoleituraAtiva } : {}), planoContrato, clienteId: clienteIdResolvido, numero: numeroDaUc, modalidade, percentual: rateio, desconto: descontoNumero, consumoMedio: media, percentualRepasseDisponibilidade: repasseDisponibilidadeGD2 === "REPASSAR" ? 100 : 0, repassarCustoDisponibilidadeGD1: repasseDisponibilidadeGD1 === "REPASSAR", repassarCustoDisponibilidadeGD2: repasseDisponibilidadeGD2 === "REPASSAR", repassarDiferencaFioBGD2: repasseFioBGD2 === "REPASSAR", tipoGd: tipoGdEfetivo, faturaSomenteAndrade: formatoFatura === "SOMENTE_ANDRADE", calcularAutomaticamente: !percentualEditado, revisaoContrato: atualizacaoContratual });
+      await alocarUnidade(usinaId, { ...(zona ? { zona_localizacao: zona, autoleitura_rural_ativa: zona === "RURAL" && autoleituraAtiva } : {}), planoContrato, clienteId: clienteIdResolvido, numero: numeroDaUc, modalidade, percentual: rateio, desconto: descontoNumero, metaDescontoReal: metaDescontoReal.trim() ? Number(metaDescontoReal.replace(",", ".")) : null, consumoMedio: media, percentualRepasseDisponibilidade: repasseDisponibilidadeGD2 === "REPASSAR" ? 100 : 0, repassarCustoDisponibilidadeGD1: repasseDisponibilidadeGD1 === "REPASSAR", repassarCustoDisponibilidadeGD2: repasseDisponibilidadeGD2 === "REPASSAR", repassarDiferencaFioBGD2: repasseFioBGD2 === "REPASSAR", tipoGd: tipoGdEfetivo, faturaSomenteAndrade: formatoFatura === "SOMENTE_ANDRADE", calcularAutomaticamente: !percentualEditado, revisaoContrato: atualizacaoContratual });
       if (usinaId !== usinaDoAmbiente?.id && usinaSelecionada) await selecionarUsina(usinaSelecionada);
       // Esta tela pode ter sido aberta a partir de uma UC ou da criação por
       // fatura. O destino único evita ficar preso na tela anterior e exigir
@@ -407,13 +417,13 @@ export default function EditarAlocacaoUnidade() {
             </Text>
           ) : null}
           <ChoiceField label="Plano do contrato" value={planoContrato} onChange={(valor) => { setPlanoContrato(valor); setDescontoPersonalizado(false); }} options={[{ label: "Com fidelidade", value: "COM_FIDELIDADE" }, { label: "Sem fidelidade", value: "SEM_FIDELIDADE" }]} />
-        {planoContrato === "SEM_FIDELIDADE" ? <Text>Prazo indeterminado, sem multa por saída antecipada e aviso prévio de 90 dias. Desconto inicial: GD II 30%; GD I 20%. Você pode editar o percentual abaixo.</Text> : null}
-        <FormField
+        {planoContrato === "SEM_FIDELIDADE" ? <Text>Prazo indeterminado, sem multa por saída antecipada e aviso prévio de 90 dias.</Text> : null}
+        {tipoGdEfetivo !== "GD2" ? <FormField
             label="Desconto contratado (%)"
             value={desconto}
             onChangeText={(valor) => { setDescontoPersonalizado(true); setDesconto(valor.replace(/[^\d,.]/g, "")); }}
             keyboardType="decimal-pad"
-          />
+          /> : null}
           <ChoiceField
             label="Formato da cobrança"
             value={formatoFatura}
@@ -431,7 +441,7 @@ export default function EditarAlocacaoUnidade() {
               onChange={(valor) => setRepasseDisponibilidadeGD1(valor as RepasseGD2)}
               options={[{ label: "Repassar ao cliente", value: "REPASSAR" }, { label: "Absorver pela Andrade", value: "ABSORVER" }]}
             /> : null}
-            {!tipoGdEfetivo || tipoGdEfetivo === "GD2" ? <>
+            {!tipoGdEfetivo ? <>
             <ChoiceField
               label="GD II: custo de disponibilidade recalculado"
               value={repasseDisponibilidadeGD2}
@@ -449,7 +459,14 @@ export default function EditarAlocacaoUnidade() {
               ? "Mesmo com documentos separados, a projeção considera também o valor pago diretamente à concessionária."
               : "Os demais encargos continuam na conta da concessionária."}
             </Text>
-            <RealDiscountInfo
+            {tipoGdEfetivo === "GD2" ? <>
+              <FormField label="Desconto real (%)" value={metaDescontoReal} onChangeText={valor=>setMetaDescontoReal(valor.replace(/[^\d,.]/g,""))} keyboardType="decimal-pad" placeholder="Ex.: 20" />
+              <Text style={styles.hint}>Informe a economia oferecida ao cliente. O app calcula o desconto a aplicar com os dados da fatura GD II.</Text>
+              {IS_GERADOR_APP && faturaComMeta && metaDescontoReal.trim()
+                && Number(metaDescontoReal.replace(",", ".")) === faturaComMeta.meta
+                ? <Text style={styles.hint}>Na última fatura, foi aplicado um desconto de {faturaComMeta.aplicado.toLocaleString("pt-BR", {maximumFractionDigits:2})}% sobre a energia. O desconto real obtido foi de {faturaComMeta.real.toLocaleString("pt-BR", {maximumFractionDigits:4})}%.</Text>
+                : null}
+            </> : <RealDiscountInfo
               descontoPercentual={desconto}
               tipoGd={tipoGdEfetivo}
               modalidadeFaturamento={modalidade}
@@ -466,10 +483,10 @@ export default function EditarAlocacaoUnidade() {
               disponibilidadeGd1={repasseDisponibilidadeGD1}
               disponibilidadeGd2={repasseDisponibilidadeGD2}
               fioBGd2={repasseFioBGD2}
-            />
+            />}
           </>
           <Button
-            disabled={salvando || !clienteIdResolvido}
+            disabled={salvando || !clienteIdResolvido || (tipoGdEfetivo === "GD2" && !metaDescontoReal.trim())}
             title={salvando ? "Salvando..." : atualizacaoContratual ? "Salvar e preparar revisão" : clienteIdResolvido ? "Salvar alocação da UC" : "Vincule um cliente para alocar"}
             onPress={salvar}
           />
