@@ -9,7 +9,7 @@ import { criarNotificacaoApp } from "../notificacoes/push.service";
 import { exigirRecebimentoDaUsina } from "./titularRecebimento.service";
 import { falhaRepasse, pagamentoDisponivelParaRepasse } from "./repasse.policy";
 import { criptografarDado } from "../../utils/sensitiveData";
-import { configurarEncargosDoBoleto, encargosDoContratoDaUc } from "./encargosContrato.service";
+import { configurarEncargosDoBoleto, encargosDoContratoDaUc, garantirEncargosNaEmissao } from "./encargosContrato.service";
 
 function digits(value: unknown) { return String(value ?? "").replace(/\D/g, ""); }
 function hojeNoBrasil() {
@@ -77,7 +77,8 @@ export async function criarCobrancaAsaas(faturaId: string, empresaId?: string, o
   const { data: referenciaUc, error: erroUc } = await supabase.from("faturas").select("unidade_consumidora_id,usina_id").eq("id", faturaId).eq("empresa_id", empresaResolvida).single();
   if (erroUc || !referenciaUc?.unidade_consumidora_id) throw new Error("Fatura sem UC válida.");
   await exigirContratoAssinadoDaUc(referenciaUc.unidade_consumidora_id, empresaResolvida);
-  const { data: existing } = await supabase.from("asaas_cobrancas").select("*").eq("fatura_id", faturaId).eq("empresa_id", empresaResolvida).maybeSingle();
+  const { data: existing, error: erroCobrancaExistente } = await supabase.from("asaas_cobrancas").select("*").eq("fatura_id", faturaId).eq("empresa_id", empresaResolvida).maybeSingle();
+  if (erroCobrancaExistente) throw erroCobrancaExistente;
   if (existing?.asaas_payment_id) {
     let payment = await asaasRequest<any>(`/payments/${existing.asaas_payment_id}`);
     const status = String(payment?.status ?? existing.status ?? "").toUpperCase();
@@ -148,6 +149,7 @@ export async function criarCobrancaAsaas(faturaId: string, empresaId?: string, o
   if (!payment?.id) {
     payment = await asaasRequest<any>("/payments", { method:"POST", body:JSON.stringify({ customer:customer.id, billingType:process.env.ASAAS_BILLING_TYPE ?? "BOLETO", value, dueDate:vencimentoOperacional, description:`Andrade Energy · ${invoice.referencia ?? "fatura"}`, externalReference:faturaId, ...encargos, ...(split ? { split } : {}) }) });
   }
+  payment = await garantirEncargosNaEmissao(payment, encargos);
 
   // Grave o vínculo imediatamente. PIX e linha digitável são gerados de forma
   // assíncrona e uma falha nessa etapa não pode deixar o pagamento órfão.

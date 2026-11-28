@@ -58,3 +58,35 @@ test("confere o PDF da UC e não presume encargos para URL externa ou contratos 
     await assert.rejects(encargosDoContratoDaUc("uc", "empresa"), /único contrato/);
   } finally { globalThis.fetch = original; }
 });
+
+test("confirma encargos antes de disponibilizar o mesmo boleto", async () => {
+  const { garantirEncargosNaEmissao } = await import("./encargosContrato.service.js");
+  const encargos = { interest: { value: 1 }, fine: { value: 2, type: "PERCENTAGE" } };
+  const original = globalThis.fetch;
+  const incompleto = { id: "pay_teste", status: "PENDING", interest: { value: 0 } };
+  let remoto = { ...incompleto };
+  let aceita = true;
+  const metodos: string[] = [];
+  globalThis.fetch = async (input, init) => {
+    assert.equal(new URL(String(input)).pathname, "/v3/payments/pay_teste");
+    metodos.push(init?.method ?? "GET");
+    if (init?.method === "PUT") {
+      assert.deepEqual(JSON.parse(String(init.body)), encargos);
+      if (aceita) remoto = { ...remoto, ...encargos };
+    }
+    return Response.json(remoto);
+  };
+  try {
+    await garantirEncargosNaEmissao({ ...incompleto, ...encargos }, encargos);
+    assert.deepEqual(metodos, []);
+    assert.equal((await garantirEncargosNaEmissao(incompleto, encargos)).fine.value, 2);
+    assert.deepEqual(metodos.splice(0), ["GET", "PUT", "GET"]);
+    remoto = { ...incompleto };
+    aceita = false;
+    await assert.rejects(garantirEncargosNaEmissao(incompleto, encargos), /não confirmou/);
+    assert.deepEqual(metodos.splice(0), ["GET", "PUT", "GET"]);
+    remoto.status = "OVERDUE";
+    await assert.rejects(garantirEncargosNaEmissao(incompleto, encargos), /não confirmou/);
+    assert.deepEqual(metodos, ["GET"]);
+  } finally { globalThis.fetch = original; }
+});

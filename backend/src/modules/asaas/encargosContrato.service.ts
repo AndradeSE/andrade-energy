@@ -4,6 +4,29 @@ import { contratoLiberaUnidade } from "../contratos/acessoContrato.policy";
 import { encargosDoTextoAssinado } from "./encargosContrato.policy";
 import { asaasRequest } from "./asaas.client";
 
+type EncargosBoleto = ReturnType<typeof encargosDoTextoAssinado>;
+
+function encargosConferem(payment: any, esperados: EncargosBoleto) {
+  return payment?.interest?.value === esperados.interest.value
+    && payment?.fine?.value === esperados.fine.value
+    && payment?.fine?.type === esperados.fine.type;
+}
+
+export async function garantirEncargosNaEmissao(payment: any, esperados: EncargosBoleto) {
+  if (!payment?.id) throw new Error("O Asaas não retornou o identificador da cobrança.");
+  if (encargosConferem(payment, esperados)) return payment;
+
+  const caminho = `/payments/${encodeURIComponent(payment.id)}`;
+  const atual = await asaasRequest<any>(caminho);
+  if (encargosConferem(atual, esperados)) return atual;
+  if (atual.status === "PENDING") {
+    await asaasRequest(caminho, { method: "PUT", body: JSON.stringify(esperados) });
+    const corrigido = await asaasRequest<any>(caminho);
+    if (encargosConferem(corrigido, esperados)) return corrigido;
+  }
+  throw new Error("O Asaas não confirmou os juros e a multa do contrato. A cobrança não foi disponibilizada pelo portal.");
+}
+
 export async function configurarEncargosDoBoleto(payment: any, unidadeId: string, empresaId: string) {
   if (!payment?.id || !["PENDING", "OVERDUE"].includes(String(payment.status).toUpperCase())) {
     throw new Error("Somente cobranças pendentes ou vencidas podem ter seus encargos configurados.");
