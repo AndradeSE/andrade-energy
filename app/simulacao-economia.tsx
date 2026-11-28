@@ -1,3 +1,6 @@
+import {router,useLocalSearchParams} from "expo-router";
+import {Alert} from "react-native";
+import {salvarProposta,type ArquivoProposta} from "../services/propostas-enviadas";
 import {useEffect,useRef,useState} from 'react';
 import {Keyboard,Text,View} from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
@@ -24,7 +27,10 @@ const semAcento=(valor:unknown)=>String(valor??'').normalize('NFD').replace(/[\u
 const positivo=(valor:unknown)=>Number.isFinite(Number(valor))&&Number(valor)>0;
 
 export default function SimulacaoEconomia(){
- const {usinaSelecionada}=useAuth();
+ const {usuario,usinaSelecionada}=useAuth();
+ const {arquivoUri,arquivoNome,arquivoMime}=useLocalSearchParams<{arquivoUri?:string;arquivoNome?:string;arquivoMime?:string}>();
+ const recebida=useRef<string | undefined>(undefined);
+ const [origemProposta,setOrigemProposta]=useState<{arquivo:ArquivoProposta;nome:string;uc:string;endereco:string}>();
  const tipoUsina=String(usinaSelecionada?.tipo_gd??'').toUpperCase().replace(/\s/g,'');
  const gdUsina=tipoUsina==='GD2'||tipoUsina==='GDII'?'GD2':tipoUsina==='GD1'||tipoUsina==='GDI'?'GD1':undefined;
  const [tarifasImportadas,setTarifasImportadas]=useState<{cheia?:number;semImpostos?:number}>();
@@ -41,16 +47,22 @@ export default function SimulacaoEconomia(){
  const [fioB,setFioB]=useState('');
  const [resultado,setResultado]=useState<ReturnType<typeof simularFaturas>>();
  const [importando,setImportando]=useState(false),[avisoImportacao,setAvisoImportacao]=useState('');
- async function importarFatura(){
+ async function importarFatura(compartilhada?:ArquivoProposta){
   setImportando(true);setErro('');setAvisoImportacao('');
   try{
-   const escolha=await DocumentPicker.getDocumentAsync({type:['application/pdf','image/jpeg','image/png'],copyToCacheDirectory:true});
-   if(escolha.canceled)return;
-   const arquivo=escolha.assets[0];
+   let arquivo=compartilhada;
+   if(!arquivo){
+    const escolha=await DocumentPicker.getDocumentAsync({type:['application/pdf','image/jpeg','image/png'],copyToCacheDirectory:true});
+    if(escolha.canceled)return;
+    arquivo=escolha.assets[0];
+   }
    const nome=arquivo.mimeType?.startsWith('image/')&&!/\.(jpe?g|png)$/i.test(arquivo.name)?'fatura.'+(arquivo.mimeType==='image/png'?'png':'jpg'):arquivo.name;
-   const {dados}=await analisarFatura(arquivo.uri,nome);
+   const analise=await analisarFatura(arquivo.uri,nome);
+   const dados=analise?.dados??{};
+   const cadastro=analise?.resultado?.dadosCadastro??analise?.dadosCadastro??{};
    const kwh=Number(dados?.consumo);
    if(!Number.isFinite(kwh)||kwh<=0)throw new Error('Não foi possível identificar o consumo. Confira a imagem ou preencha o consumo manualmente.');
+   setOrigemProposta({arquivo:{...arquivo,name:nome},nome:String(dados.cliente??dados.nome??dados.titular??cadastro.nome??""),uc:String(dados.uc??dados.numero_instalacao??dados.numeroInstalacao??cadastro.uc??""),endereco:String(dados.endereco??dados.endereco_instalacao??cadastro.endereco??"")});
    setConsumo(decimal(kwh,3));
    const tarifaFatura=positivo(dados.tarifaCheia)?Number(dados.tarifaCheia):undefined;
    const semImpostos=positivo(dados.tarifaDisponibilidadeSemImpostos)?Number(dados.tarifaDisponibilidadeSemImpostos):undefined;
@@ -80,18 +92,30 @@ export default function SimulacaoEconomia(){
   }catch(e:any){setErro(e?.response?.data?.message??e.message??'Não foi possível ler a fatura.');}
   finally{setImportando(false);}
  }
+ useEffect(()=>{
+  if(!arquivoUri || recebida.current===arquivoUri || !Paths.cache.uri || !arquivoUri.startsWith(Paths.cache.uri.replace(/\/$/, "") + "/") || !/^[a-f0-9-]{36}\.(pdf|jpg|png)$/.test(arquivoUri.split("/").pop()??""))return;
+  recebida.current=arquivoUri;
+  void importarFatura({uri:arquivoUri,name:arquivoNome??"fatura.pdf",mimeType:arquivoMime});
+ },[arquivoUri,arquivoNome,arquivoMime]);
  const [compartilhando,setCompartilhando]=useState(false);
  async function enviarProposta(){
   if(!resultado||compartilhando)return;
   setCompartilhando(true);
   setErro('');
   try{
+   if(!usuario?.id || !usinaSelecionada?.id)throw new Error('Selecione uma usina antes de enviar a proposta.');
    if(!await Sharing.isAvailableAsync())throw new Error('Compartilhamento de arquivos indisponível neste dispositivo.');
    const pdf=await gerarPropostaEconomiaPdf(resultado,consumo,desconto,gd==='GD2'?'GD II':'GD I');
    const arquivo=new File(Paths.cache,'proposta-andrade-energy.pdf');
    arquivo.create({overwrite:true});
    arquivo.write(pdf);
    await Sharing.shareAsync(arquivo.uri,{mimeType:'application/pdf',UTI:'com.adobe.pdf',dialogTitle:'Enviar proposta por e-mail ou WhatsApp'});
+   const enviada=await new Promise<boolean>(resolve=>Alert.alert("A proposta foi enviada?","Confirme para manter a proposta no histórico por 30 dias.",[
+    {text:"Não",style:"cancel",onPress:()=>resolve(false)},
+    {text:"Sim, registrar",onPress:()=>resolve(true)},
+   ],{cancelable:true,onDismiss:()=>resolve(false)}));
+   if(enviada)await salvarProposta(String(usuario.id),String(usinaSelecionada.id),{consumo,desconto,economia:resultado.economia,nome:origemProposta?.nome??"",uc:origemProposta?.uc??"",endereco:origemProposta?.endereco??""},origemProposta?.arquivo);
+
   }catch(e:any){setErro(e?.message??'Não foi possível compartilhar a proposta.');}
   finally{setCompartilhando(false);}
  }
@@ -129,6 +153,7 @@ export default function SimulacaoEconomia(){
  const nota=(s:string)=><Text style={{color:Colors.subtitle,lineHeight:22}}>{s}</Text>;
  return <Screen><AppHeader variant="subpage" showPlantSwitch={false} title="Calculadora de economia" subtitle="Uma ideia da economia do cliente" contextTitle="Estimativa rápida" contextSubtitle="Compensação de 100% do consumo"/><ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={{padding:20,gap:20,paddingBottom:40}}>
  <Card><View style={{gap:16}}>{titulo("Estime a economia")}
+ <Button title="Propostas enviadas" onPress={()=>router.push("/propostas-enviadas")} />
  <Button title="Importar fatura (PDF ou foto)" disabled={importando||consultando} onPress={()=>void importarFatura()}/>
  {importando?nota('Lendo fatura…'):null}
  {avisoImportacao?nota(avisoImportacao):null}

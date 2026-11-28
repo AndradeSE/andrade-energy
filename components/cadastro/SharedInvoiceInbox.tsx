@@ -1,3 +1,5 @@
+import { limparPropostasVencidas } from "../../services/propostas-enviadas";
+import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 import * as FileSystem from "expo-file-system/legacy";
@@ -33,6 +35,14 @@ export default function SharedInvoiceInbox({ enabled }: { enabled: boolean }) {
     const poll = setInterval(() => { if (AppState.currentState === "active") void check(); }, 1500);
     return () => { active = false; listener.remove(); clearInterval(poll); };
   }, [directory, enabled, name]);
+  useEffect(() => {
+    if (!enabled) return;
+    const limpar = () => { void limparPropostasVencidas().catch(() => undefined); };
+    limpar();
+    const subscription = AppState.addEventListener("change", state => { if (state === "active") limpar(); });
+    const timer = setInterval(() => { if (AppState.currentState === "active") limpar(); }, 60 * 60 * 1000);
+    return () => { subscription.remove(); clearInterval(timer); };
+  }, [enabled]);
   if (!enabled || !name || usuario?.perfil !== "ADMIN") return null;
   const uri = FileSystem.cacheDirectory + name;
   const extension = name.split(".").pop();
@@ -64,8 +74,9 @@ export default function SharedInvoiceInbox({ enabled }: { enabled: boolean }) {
             {extension !== "pdf" ? (
               <Image source={{ uri }} resizeMode="contain" style={styles.preview} accessibilityLabel="Foto da fatura compartilhada" />
             ) : null}
-            <Text style={styles.description}>Escolha o que deseja cadastrar com este arquivo.</Text>
+            <Text style={styles.description}>Escolha o que deseja fazer com este arquivo.</Text>
             <View style={styles.actions}>
+              <Button title="Simular desconto" onPress={() => { abrirCadastro(); router.push({ pathname: "/simulacao-economia", params: { arquivoUri: uri, arquivoNome: arquivo.name, arquivoMime: mimeType } }); }} />
               {usinaSelecionada ? <>
                 <CadastroActions tipo="CLIENTE" compartilhado={arquivo} onImported={() => setName("")} />
                 <CadastroActions tipo="UNIDADE" compartilhado={arquivo} onImported={abrirCadastro} />
