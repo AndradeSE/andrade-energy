@@ -219,8 +219,10 @@ export default function DashboardGestor() {
             title="Não foi possível carregar a usina"
             subtitle="Verifique sua conexão e tente novamente."
           />
-          <Button title="Escolher ou cadastrar usina" onPress={() => router.replace("/selecionar-unidade")} />
-          <Button title="Tentar novamente" onPress={() => void refetch()} />
+          <View style={styles.errorActions}>
+            <Button title="Tentar novamente" onPress={() => void refetch()} />
+            <Button title="Escolher ou cadastrar usina" onPress={() => router.replace("/selecionar-unidade")} />
+          </View>
         </View>
       </Screen>
     );
@@ -538,6 +540,7 @@ export default function DashboardGestor() {
 const styles = StyleSheet.create({
   content: { padding: Spacing.lg, paddingBottom: Spacing.xxl * 3 },
   errorContent: { flex: 1, justifyContent: "center", padding: Spacing.lg },
+  errorActions: { gap: Spacing.md, marginTop: Spacing.md },
   teamCard: {
     flexDirection: "row",
     alignItems: "center",
