@@ -47,7 +47,14 @@ test("meta GD II de 20% acompanha contrato, fatura e memória de cálculo", asyn
     unidades_consumidoras: unidade,
   };
   const pdf = await extrairTextoDoBuffer(await gerarPdfFatura(fatura, "UNIFICADA"));
-  assert.match(pdf, /Desconto real aproximado:\s*20(?:,00)?%/);
+  assert.match(pdf, /Desconto real contratado:\s*20(?:,00)?%/);
+  assert.match(pdf, /Desconto aplicado na tarifa:\s*40(?:,00)?%/);
+  const legado = await extrairTextoDoBuffer(await gerarPdfFatura({
+    ...fatura, meta_desconto_real_percentual: null, valor_total_absorvido: 15, valor_absorvido_fio_b: 15,
+  }, "UNIFICADA"));
+  assert.match(legado, /Desconto real do mês:\s*20(?:,00)?%/);
+  assert.match(legado, /Desconto aplicado na tarifa:\s*40(?:,00)?%/);
+  assert.doesNotMatch(legado, /absorvid|devolução.*fio b/i);
   const memoria = await extrairTextoDoBuffer(await gerarPdfRelatorioCalculo(fatura));
   assert.match(memoria, /Meta\s*20(?:,00)?%.*Aplicado\s*40(?:,00)?%.*Real\s*20(?:,00)?%/);
 });
