@@ -1,3 +1,4 @@
+import { IndicatorGradient } from "../ui/IndicatorGradient";
 import { Ionicons } from "@expo/vector-icons";
 import { StyleSheet, Text, View } from "react-native";
 
@@ -16,7 +17,7 @@ export default function RevenueChart({ previsto, recebido, competencia }: Props)
   const pendente = Math.max(0, previstoSeguro - recebidoSeguro);
 
   return (
-    <View style={styles.card}>
+    <View style={styles.card}><IndicatorGradient radius={Radius.xl} />
       <View style={styles.header}>
         <View>
           <Text style={styles.eyebrow}>RECEITA DA COMPETÊNCIA{competencia ? ` · ${competencia}` : ""}</Text>

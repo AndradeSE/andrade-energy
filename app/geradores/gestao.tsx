@@ -1,3 +1,4 @@
+import { IndicatorGradient } from "../../components/ui/IndicatorGradient";
 import { mascaraMoeda, valorMoedaMascarada } from "../../utils/input-masks";
 import PixKeyTypeSelector, { PixKeyType } from "../../components/financeiro/PixKeyTypeSelector";
 import { Ionicons } from "@expo/vector-icons";
@@ -547,7 +548,7 @@ export default function GestaoGeradores() {
             {aba === "PAGAMENTOS" ? (
               <>
                 <Section title="Movimentação financeira" framed={false}>
-                  <View style={styles.walletCardStandalone}>
+                  <View style={styles.walletCardStandalone}><IndicatorGradient radius={Radius.xl} />
                     <View style={styles.grow}>
                       <Text style={styles.walletLabel}>
                         VALOR DISPONÍVEL PARA TRANSFERÊNCIA

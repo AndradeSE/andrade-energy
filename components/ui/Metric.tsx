@@ -1,4 +1,4 @@
-import { LinearGradient } from "expo-linear-gradient";
+import { IndicatorGradient } from "./IndicatorGradient";
 import { ReactNode } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
@@ -54,11 +54,7 @@ export default function Metric({
       {children}
     </>
   );
-  return variant === "primary" ? (
-    <LinearGradient colors={[Colors.primaryDark, Colors.primary]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0.8 }} style={containerStyle}>
-      {content}
-    </LinearGradient>
-  ) : <View style={containerStyle}>{content}</View>;
+  return <View style={containerStyle}>{variant === "primary" ? <IndicatorGradient radius={compact ? Radius.md : Radius.lg} /> : null}{content}</View>;
 }
 
 const styles = StyleSheet.create({

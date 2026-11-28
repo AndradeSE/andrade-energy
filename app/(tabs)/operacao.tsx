@@ -1,3 +1,4 @@
+import { IndicatorGradient } from "../../components/ui/IndicatorGradient";
 import { buscarUsina } from "../../services/usinas.service";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { initialTabKey } from "../../services/navigation-preload.service";
@@ -81,7 +82,7 @@ export default function Operacao() {
           <View style={styles.metric}><Metric compact title="Ocupação" value={`${Number(resumo?.ocupacao ?? 0).toFixed(1)}%`} icon={<Ionicons name="pie-chart-outline" size={20} color={Colors.primary} />} /></View>
         </View></Card>
         <Card><Text style={styles.title}>Rateio mensal</Text><Text style={styles.subtitle}>Planilha, saldo da âncora e integração Cemig em uma tela própria.</Text><Button title="Abrir rateio" onPress={()=>router.push({pathname:'/operacao/rateio' as any,params:{competencia,usinaId}})} /></Card>
-        <Section title="Resultado financeiro"><Card style={styles.financialCard}>
+        <Section title="Resultado financeiro"><Card style={styles.financialCard}><IndicatorGradient radius={Radius.xl} />
           <View style={styles.financialTop}><View style={styles.revenueCopy}><Text style={styles.cardLabel}>RECEITA PREVISTA</Text><Text style={styles.revenue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5}>{moeda(resumo?.receitaPrevista)}</Text></View><Badge label={`${Number(percentualRecebido).toFixed(0)}% recebido`} variant={percentualRecebido >= 99 ? "success" : "warning"} /></View>
           <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${percentualRecebido}%` }]} /></View>
           <View style={styles.financialRow}><SmallValue label="RECEBIDO" value={moeda(resumo?.receitaRecebida)} /><SmallValue label="PENDENTE" value={moeda(resumo?.receitaPendente)} /><SmallValue label="VENCIDAS" value={String(resumo?.faturasVencidas ?? 0)} /></View>

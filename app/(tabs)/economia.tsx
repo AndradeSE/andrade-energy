@@ -1,3 +1,4 @@
+import { IndicatorGradient } from "../../components/ui/IndicatorGradient";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { RefreshControl, StyleSheet, Text, View } from "react-native";
@@ -122,7 +123,7 @@ export default function Economia() {
           </View>
         </View>
 
-        <View style={styles.hero}>
+        <View style={styles.hero}><IndicatorGradient radius={Radius.xl} />
           <View style={styles.heroGlow} />
           <Badge label="Desde o início do contrato" variant="success" />
           <Text style={styles.heroLabel}>Você já economizou</Text>

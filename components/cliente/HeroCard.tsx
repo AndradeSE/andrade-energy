@@ -1,3 +1,4 @@
+import { IndicatorGradient } from "../ui/IndicatorGradient";
 import { Ionicons } from "@expo/vector-icons";
 import { StyleSheet, Text, View } from "react-native";
 
@@ -24,7 +25,7 @@ function formatarMoeda(valor: number) {
 
 export default function HeroCard({ saldo, economia }: Props) {
   return (
-    <View style={styles.container}>
+    <View style={styles.container}><IndicatorGradient radius={Radius.xl} />
       <View style={styles.glowLarge} />
       <View style={styles.glowSmall} />
 

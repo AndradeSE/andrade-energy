@@ -1,3 +1,4 @@
+import { IndicatorGradient } from "../ui/IndicatorGradient";
 import { INVERTER_INTEGRATIONS_ENABLED } from "../../config/appVariant";
 import { canViewServiceQuotas } from "../../utils/service-quota-access";
 import { unidadesParaRecebimento } from "../../utils/unidadesRecebimento";
@@ -317,7 +318,7 @@ export default function DashboardGestor() {
           />
         </Section>
 
-        <View style={styles.generationSummary}>
+        <View style={styles.generationSummary}><IndicatorGradient radius={Radius.xl} />
           <View style={styles.generationSummaryTop}>
             <View>
               <Text style={styles.generationEyebrow}>GERAÇÃO DO MÊS</Text>
@@ -376,7 +377,7 @@ export default function DashboardGestor() {
             onPress={() => void abrirCarteira()}
             style={styles.walletSummary}
           >
-            <View style={styles.walletSummaryTop}>
+            <IndicatorGradient radius={Radius.xl} /><View style={styles.walletSummaryTop}>
               <View>
                 <Text style={styles.walletEyebrow}>CARTEIRA ANDRADE</Text>
                 <Text style={styles.walletBalance}>

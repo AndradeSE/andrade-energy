@@ -1,3 +1,4 @@
+import { IndicatorGradient } from "../../components/ui/IndicatorGradient";
 import { Ionicons } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
@@ -408,7 +409,7 @@ function ContratoConsumidor() {
           </Text>
         </View>
 
-        <Pressable accessibilityRole={assinaturaInicialPendente ? "button" : undefined} accessibilityLabel={assinaturaInicialPendente ? "Meu contrato, aguardando assinatura. Ir para assinatura" : undefined} disabled={!assinaturaInicialPendente} onPress={irParaAssinatura} style={styles.hero}>
+        <Pressable accessibilityRole={assinaturaInicialPendente ? "button" : undefined} accessibilityLabel={assinaturaInicialPendente ? "Meu contrato, aguardando assinatura. Ir para assinatura" : undefined} disabled={!assinaturaInicialPendente} onPress={irParaAssinatura} style={styles.hero}><IndicatorGradient radius={Radius.xl} />
           <View style={styles.heroHeader}>
             <View style={styles.heroIcon}>
               <Ionicons
