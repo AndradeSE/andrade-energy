@@ -234,6 +234,14 @@ export default function DashboardGestor() {
       label: rotuloCompetencia(item.competencia),
       value: Math.max(0, Number(item.energiaGerada ?? item.energia_gerada ?? 0)),
     }));
+  const mediaProducao = Number(data.usina?.geracao_media);
+  const ocupacao = Number(data.ocupacao);
+  const energiaLivre = Number(data.energiaDisponivel);
+  const capacidade = Number.isFinite(mediaProducao) && mediaProducao > 0
+    && data.ocupacao != null && Number.isFinite(ocupacao)
+    && data.energiaDisponivel != null && Number.isFinite(energiaLivre)
+    ? { ocupacao: Math.max(0, Math.min(100, ocupacao)), livre: Math.max(0, Math.min(mediaProducao, energiaLivre)) }
+    : null;
   const recebimentoProducaoAtivo = data.unidadeGeradora?.recebimento_email_ativo === true;
   const abrirRecebimentoProducao = () => {
     const unidadeGeradoraId = data.unidadeGeradora?.id;
@@ -340,12 +348,28 @@ export default function DashboardGestor() {
             </View>
           </View>
           <View style={styles.generationFooter}>
-            <Text style={styles.generationFooterText}>
-              {formatarPercentual(data.capacidadeReservada)} reservada
-            </Text>
-            <Text style={styles.generationFooterText}>
-              {formatarPercentual(data.capacidadeDisponivel)} livre
-            </Text>
+            <Text style={styles.generationOccupancyTitle}>Ocupação da usina</Text>
+            {capacidade ? <>
+              <Text style={styles.generationFooterText}>Base: produção média mensal de {formatarEnergia(mediaProducao)}</Text>
+              <View
+                accessibilityRole="progressbar"
+                accessibilityLabel="Ocupação da usina"
+                accessibilityValue={{ min: 0, max: 100, now: Math.round(capacidade.ocupacao) }}
+                style={styles.generationProgress}
+              >
+                <View style={[styles.generationProgressFill, { width: `${capacidade.ocupacao}%` }]} />
+              </View>
+              <View style={styles.generationLegend}>
+                <View style={styles.generationLegendItem}>
+                  <Text style={styles.generationFooterText}>{formatarPercentual(capacidade.ocupacao)} ocupada</Text>
+                  <Text style={styles.generationOccupancyTitle}>{formatarEnergia(mediaProducao - capacidade.livre)}</Text>
+                </View>
+                <View style={[styles.generationLegendItem, styles.generationLegendRight]}>
+                  <Text style={styles.generationFooterText}>{formatarPercentual(100 - capacidade.ocupacao)} livre</Text>
+                  <Text style={styles.generationOccupancyTitle}>{formatarEnergia(capacidade.livre)}</Text>
+                </View>
+              </View>
+            </> : <Text style={styles.generationFooterText}>Produção média indisponível para calcular a ocupação.</Text>}
           </View>
           <View style={styles.generationActions}>
             <Pressable accessibilityRole="button" accessibilityLabel="Importar dados de produção via PDF" disabled={importando} onPress={atualizarGeracao} style={[styles.generationAction, styles.generationActionPrimary, importando && styles.disabled]}>
@@ -678,13 +702,18 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,.12)",
   },
   generationFooter: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+    gap: Spacing.sm,
     marginTop: Spacing.lg,
     paddingTop: Spacing.md,
     borderTopWidth: 1,
     borderTopColor: "rgba(255,255,255,.16)",
   },
+  generationOccupancyTitle: { color: "#FFFFFF", fontSize: 14, fontWeight: "800" },
+  generationProgress: { height: 9, borderRadius: Radius.round, backgroundColor: "rgba(255,255,255,.24)", overflow: "hidden" },
+  generationProgressFill: { height: "100%", borderRadius: Radius.round, backgroundColor: "#F6CC32" },
+  generationLegend: { flexDirection: "row", justifyContent: "space-between", gap: Spacing.sm },
+  generationLegendItem: { flex: 1, gap: 4 },
+  generationLegendRight: { alignItems: "flex-end" },
   generationFooterText: { color: "#D1FAE5", fontSize: 11, fontWeight: "700" },
   walletSummary: {
     marginBottom: Spacing.xl,
